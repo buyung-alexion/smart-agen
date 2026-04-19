@@ -1,0 +1,22 @@
+export const CATEGORIES = [
+  { id: 'restaurant', name: 'Restoran & Kuliner' },
+  { id: 'cafe', name: 'Kafe & Coffee Shop' },
+  { id: 'school', name: 'Sekolah & Institusi Pendidikan' },
+  { id: 'hospital', name: 'Rumah Sakit & Klinik' },
+  { id: 'accounting', name: 'Akuntan & Kantor Pajak' },
+  { id: 'bank', name: 'Bank & Keuangan' },
+  { id: 'beauty_salon', name: 'Salon & Kecantikan' },
+  { id: 'car_repair', name: 'Bengkel & Otomotif' },
+  { id: 'clothing_store', name: 'Toko Baju & Fashion' },
+  { id: 'dentist', name: 'Dokter Gigi' },
+  { id: 'electronics_store', name: 'Toko Elektronik' },
+  { id: 'gym', name: 'Gym & Fitness Center' },
+  { id: 'hotel', name: 'Hotel & Penginapan' },
+  { id: 'insurance_agency', name: 'Agen Asuransi' },
+  { id: 'lawyer', name: 'Pengacara & Hukum' },
+  { id: 'pharmacy', name: 'Apotek' },
+  { id: 'real_estate_agency', name: 'Agen Properti' },
+  { id: 'supermarket', name: 'Supermarket & Retail' },
+  { id: 'pet_store', name: 'Toko Hewan' },
+  { id: 'travel_agency', name: 'Biro Perjalanan' }
+];
