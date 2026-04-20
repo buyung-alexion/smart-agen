@@ -10,3 +10,12 @@ export interface Lead {
   rating: number;
   status: string;
 }
+
+export interface ChatMessage {
+  id?: string;
+  lead_id: string;
+  sender_type: 'ai' | 'prospect' | 'human';
+  content: string;
+  is_draft?: boolean;
+  created_at?: string;
+}

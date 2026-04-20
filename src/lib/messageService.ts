@@ -1,15 +1,17 @@
-import { supabase } from './supabase';
+import { getSupabase } from './supabase';
 
 export interface ChatMessage {
   id?: string;
   lead_id: string;
   sender_type: 'ai' | 'prospect' | 'human';
   content: string;
+  is_draft?: boolean;
   created_at?: string;
 }
 
 export const fetchMessages = async (leadId: string): Promise<ChatMessage[]> => {
-  const { data, error } = await supabase
+  const db = getSupabase();
+  const { data, error } = await db
     .from('messages')
     .select('*')
     .eq('lead_id', leadId)
@@ -23,7 +25,8 @@ export const fetchMessages = async (leadId: string): Promise<ChatMessage[]> => {
 };
 
 export const sendMessage = async (message: ChatMessage) => {
-  const { data, error } = await supabase
+  const db = getSupabase();
+  const { data, error } = await db
     .from('messages')
     .insert([message])
     .select()
@@ -33,9 +36,23 @@ export const sendMessage = async (message: ChatMessage) => {
   return data;
 };
 
+export const updateMessageStatus = async (messageId: string, updates: Partial<ChatMessage>) => {
+  const db = getSupabase();
+  const { data, error } = await db
+    .from('messages')
+    .update(updates)
+    .eq('id', messageId)
+    .select()
+    .single();
+
+  if (error) throw error;
+  return data;
+};
+
 // Real-time subscription helper
 export const subscribeToMessages = (leadId: string, onNewMessage: (payload: any) => void) => {
-  return supabase
+  const db = getSupabase();
+  return db
     .channel(`messages:lead_id=eq.${leadId}`)
     .on(
       'postgres_changes',

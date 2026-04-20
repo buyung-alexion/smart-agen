@@ -2,14 +2,18 @@ import React, { useState, useEffect } from 'react';
 import { Bot, Zap, MessageCircle, Settings2, Play, User, Edit3, Send, CheckCircle2 } from 'lucide-react';
 import type { Lead } from '../types';
 import { fetchActivePersona, savePersona, type Persona } from '../lib/personaService';
-import { fetchMessages, sendMessage, subscribeToMessages, type ChatMessage } from '../lib/messageService';
+import { fetchMessages, sendMessage, subscribeToMessages, updateMessageStatus, type ChatMessage } from '../lib/messageService';
+import { generateAIDraft } from '../lib/aiService';
 
 import { fetchCampaigns, createCampaign, type Campaign } from '../lib/campaignService';
+import { AIPlayground } from './AIPlayground';
+import { AIKnowledgeBase } from './AIKnowledgeBase';
 
 interface SmartActionHubProps {
   prospects: Lead[];
-  activeSubTab: 'persona' | 'campaign' | 'inbox';
-  setActiveSubTab: (tab: 'persona' | 'campaign' | 'inbox') => void;
+  customers: Lead[];
+  activeSubTab: 'persona' | 'campaign' | 'inbox' | 'playground';
+  setActiveSubTab: (tab: 'persona' | 'campaign' | 'inbox' | 'playground') => void;
 }
 
 export const SmartActionHub: React.FC<SmartActionHubProps> = ({ prospects, activeSubTab, setActiveSubTab }) => {
@@ -17,6 +21,7 @@ export const SmartActionHub: React.FC<SmartActionHubProps> = ({ prospects, activ
     name: 'Sarah - Sales Representative',
     tone: 'Sopan & Profesional',
     goal: '',
+    instructions: '',
     knowledge_base: ''
   });
   
@@ -24,11 +29,21 @@ export const SmartActionHub: React.FC<SmartActionHubProps> = ({ prospects, activ
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [newMessage, setNewMessage] = useState('');
   const [isSaving, setIsSaving] = useState(false);
+  const [isThinking, setIsThinking] = useState(false);
 
   // Campaign State
   const [campaignCategory, setCampaignCategory] = useState('All');
   const [openingMsg, setOpeningMsg] = useState('Halo {{company_name}}! Kami punya penawaran menarik...');
   const [isLaunching, setIsLaunching] = useState(false);
+  const [safetyInterval, setSafetyInterval] = useState(30); // Default 30 seconds
+  const [campaignProgress, setCampaignProgress] = useState(0);
+  
+  // Selection State
+  const [targetType, setTargetType] = useState<'prospek' | 'customer'>('prospek');
+  const [selectedTargetIds, setSelectedTargetIds] = useState<Set<string>>(new Set());
+
+  // Helper for human-like delay
+  const delay = (ms: number) => new Promise(res => setTimeout(res, ms));
 
   // 1. Initial Load
   useEffect(() => {
@@ -40,28 +55,55 @@ export const SmartActionHub: React.FC<SmartActionHubProps> = ({ prospects, activ
   }, []);
   
   const handleLaunchCampaign = async () => {
-    setIsLaunching(true);
-    try {
-      const targetCount = campaignCategory === 'All' 
-        ? prospects.length 
-        : prospects.filter(p => p.category === campaignCategory).length;
+    const candidates = targetType === 'prospek' ? prospects : customers;
+    const targets = candidates.filter(c => selectedTargetIds.has(c.id));
+    
+    if (targets.length === 0) {
+      alert('Silakan pilih minimal satu target untuk memulai campaign.');
+      return;
+    }
 
+    setIsLaunching(true);
+    setCampaignProgress(0);
+
+    try {
+      // 1. Create campaign record
       await createCampaign({
         filter_category: campaignCategory,
         opening_message: openingMsg,
-        target_count: targetCount,
+        target_count: targets.length,
         status: 'Running'
       });
-      alert('Campaign launched successfully and recorded to database!');
+
+      // 2. Real Generation of Drafts
+      for (let i = 0; i < targets.length; i++) {
+        const lead = targets[i];
+        
+        // Generate personalized opener based on persona
+        const draftContent = await generateAIDraft(persona, [], `[System: Generate opening message for ${lead.company_name} from category ${lead.category}]`);
+        
+        await sendMessage({
+          lead_id: lead.id,
+          sender_type: 'ai',
+          content: draftContent,
+          is_draft: true
+        });
+
+        setCampaignProgress(Math.round(((i + 1) / targets.length) * 100));
+        // Small delay to prevent rate limit feel
+        await delay(500);
+      }
+
+      alert('Campaign Drafted! Silakan cek Inbox untuk meninjau dan mengirim pesan pembuka.');
     } catch (err) {
       console.error(err);
       alert('Failed to launch campaign.');
     } finally {
       setIsLaunching(false);
+      setCampaignProgress(0);
     }
   };
 
-  // 2. Load Messages when Active Chat changes
   useEffect(() => {
     if (activeChatId) {
       const loadMessages = async () => {
@@ -72,7 +114,17 @@ export const SmartActionHub: React.FC<SmartActionHubProps> = ({ prospects, activ
 
       // Subscribe to Realtime updates
       const subscription = subscribeToMessages(activeChatId, (newMsg) => {
-        setMessages(prev => [...prev, newMsg]);
+        setMessages(prev => {
+          // Avoid duplicate updates
+          if (prev.find(m => m.id === newMsg.id)) return prev;
+          
+          // Trigger AI Drafting if the new message is from a prospect
+          if (newMsg.sender_type === 'prospect') {
+            triggerAIDraft(newMsg.lead_id, [...prev, newMsg]);
+          }
+          
+          return [...prev, newMsg];
+        });
       });
 
       return () => {
@@ -80,6 +132,36 @@ export const SmartActionHub: React.FC<SmartActionHubProps> = ({ prospects, activ
       };
     }
   }, [activeChatId]);
+
+  const triggerAIDraft = async (leadId: string, currentHistory: ChatMessage[]) => {
+    if (isThinking) return;
+    setIsThinking(true);
+    
+    try {
+      const draftContent = await generateAIDraft(persona, currentHistory);
+      await sendMessage({
+        lead_id: leadId,
+        sender_type: 'ai',
+        content: draftContent,
+        is_draft: true
+      });
+    } catch (err) {
+      console.error('Error auto-drafting:', err);
+    } finally {
+      setIsThinking(false);
+    }
+  };
+
+  const handleApproveDraft = async (msg: ChatMessage) => {
+    if (!msg.id) return;
+    try {
+      await updateMessageStatus(msg.id, { is_draft: false });
+      // The real-time subscription will update the UI
+    } catch (err) {
+      console.error('Failed to approve draft:', err);
+      alert('Gagal menyetujui draf.');
+    }
+  };
 
   const handleSavePersona = async () => {
     setIsSaving(true);
@@ -120,8 +202,8 @@ export const SmartActionHub: React.FC<SmartActionHubProps> = ({ prospects, activ
                <Settings2 size={24} />
             </div>
             <div>
-              <h2 style={{ margin: 0, fontSize: '1.4rem' }}>Train Your AI Agent</h2>
-              <p style={{ margin: 0, color: 'var(--text-muted)' }}>Konfigurasi bagaimana agen AI (Gemini) berinteraksi dengan prospek.</p>
+              <h2 style={{ margin: 0, fontSize: '1.4rem' }}>Agent Configuration</h2>
+              <p style={{ margin: 0, color: 'var(--text-muted)' }}>Atur identitas dasar agen AI Anda. Untuk melatih perilakunya, gunakan <b>AI Playground</b>.</p>
             </div>
           </div>
 
@@ -178,14 +260,42 @@ export const SmartActionHub: React.FC<SmartActionHubProps> = ({ prospects, activ
             </div>
           </div>
 
+          <div style={{ marginTop: '2.5rem', padding: '1.5rem', background: 'rgba(112, 40, 250, 0.05)', borderRadius: '16px', border: '1px solid rgba(112, 40, 250, 0.1)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '1rem', color: 'var(--sidebar-gradient)', fontWeight: 700 }}>
+              <Zap size={20} /> How to Train Your Agent Effectively
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2rem', fontSize: '0.85rem', color: 'var(--text-main)', opacity: 0.9 }}>
+              <div>
+                <strong style={{ display: 'block', marginBottom: '5px' }}>💡 Knowledge Base Tips:</strong>
+                <ul style={{ paddingLeft: '1.2rem', margin: 0, display: 'flex', flexDirection: 'column', gap: '5px' }}>
+                  <li>Masukkan <b>Daftar Harga</b> produk/layanan Anda.</li>
+                  <li>Tuliskan <b>Jam Operasional</b> dan <b>Lokasi</b> kantor.</li>
+                  <li>Tambahkan <b>FAQ</b> (Pertanyaan yang sering ditanyakan).</li>
+                </ul>
+              </div>
+              <div>
+                <strong style={{ display: 'block', marginBottom: '5px' }}>🎯 Goal Setting:</strong>
+                <ul style={{ paddingLeft: '1.2rem', margin: 0, display: 'flex', flexDirection: 'column', gap: '5px' }}>
+                  <li>Misal: "Dapatkan nomor WhatsApp owner bisnis ini."</li>
+                  <li>Misal: "Ajak mereka jadwal meeting zoom besok."</li>
+                  <li>Misal: "Berikan link pendaftaran promo diskon 50%."</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+
           <div style={{ marginTop: '2rem', display: 'flex', justifyContent: 'flex-end' }}>
             <button 
-              className="btn-approve" 
-              style={{ padding: '0.8rem 2rem' }}
+              className="btn-scan-premium" 
+              style={{ padding: '0.8rem 3rem', fontSize: '1rem', marginTop: 0 }}
               onClick={handleSavePersona}
               disabled={isSaving}
             >
-              {isSaving ? 'Saving...' : 'Simpan AI Persona'}
+              {isSaving ? 'Syncing...' : (
+                <>
+                  <Play size={18} fill="currentColor" /> Deploy AI Instructions
+                </>
+              )}
             </button>
           </div>
         </div>
@@ -197,91 +307,166 @@ export const SmartActionHub: React.FC<SmartActionHubProps> = ({ prospects, activ
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '2rem' }}>
             <div>
               <h2 style={{ margin: 0, fontSize: '1.4rem' }}>Launch Follow-Up Campaign</h2>
-              <p style={{ margin: 0, color: 'var(--text-muted)' }}>Targetkan database prospek untuk disapa secara otonom oleh AI.</p>
+              <p style={{ margin: 0, color: 'var(--text-muted)' }}>Targetkan database untuk disapa secara otonom oleh AI.</p>
             </div>
           </div>
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-            <div className="search-box" style={{ padding: '1.5rem', background: 'var(--bg-app)' }}>
-               <h4 style={{ marginBottom: '1rem' }}>Pilih Database Prospek</h4>
-               <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
-                 <select 
-                   className="input-styled" 
-                   value={campaignCategory}
-                   onChange={(e) => setCampaignCategory(e.target.value)}
-                   style={{ border: '1px solid rgba(0,0,0,0.05)', flex: 1 }}
-                 >
-                   <option value="All">Semua Kategori Prospek ({prospects.length})</option>
-                   {[...new Set(prospects.map(p => p.category))].map(cat => (
-                     <option key={cat} value={cat}>Filter Kategori: {cat} ({prospects.filter(p => p.category === cat).length})</option>
-                   ))}
-                 </select>
-                 <span className="badge-styled" style={{ whiteSpace: 'nowrap' }}>
-                    {campaignCategory === 'All' ? prospects.length : prospects.filter(p => p.category === campaignCategory).length} Prospek Target
-                 </span>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2rem' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+               <div className="search-box" style={{ padding: '1.5rem', background: 'var(--bg-app)' }}>
+                  <h4 style={{ marginBottom: '1rem' }}>1. Pilih Sumber Data</h4>
+                  <div style={{ display: 'flex', gap: '0.5rem', background: 'white', padding: '4px', borderRadius: '12px', border: '1px solid rgba(0,0,0,0.05)' }}>
+                    <button 
+                      onClick={() => { setTargetType('prospek'); setSelectedTargetIds(new Set()); }}
+                      style={{ flex: 1, padding: '10px', borderRadius: '8px', border: 'none', background: targetType === 'prospek' ? 'var(--sidebar-gradient)' : 'none', color: targetType === 'prospek' ? 'white' : 'var(--text-main)', cursor: 'pointer', fontWeight: 600, fontSize: '0.85rem' }}
+                    >
+                      Prospek
+                    </button>
+                    <button 
+                      onClick={() => { setTargetType('customer'); setSelectedTargetIds(new Set()); }}
+                      style={{ flex: 1, padding: '10px', borderRadius: '8px', border: 'none', background: targetType === 'customer' ? 'var(--sidebar-gradient)' : 'none', color: targetType === 'customer' ? 'white' : 'var(--text-main)', cursor: 'pointer', fontWeight: 600, fontSize: '0.85rem' }}
+                    >
+                      Customer
+                    </button>
+                  </div>
+               </div>
+
+               <div className="search-box" style={{ padding: '1.5rem', background: 'var(--bg-app)' }}>
+                  <h4 style={{ marginBottom: '1rem' }}>2. Filter Kategori</h4>
+                  <select 
+                    className="input-styled" 
+                    value={campaignCategory}
+                    onChange={(e) => setCampaignCategory(e.target.value)}
+                    style={{ border: '1px solid rgba(0,0,0,0.05)' }}
+                  >
+                    <option value="All">Semua Kategori</option>
+                    {[...new Set((targetType === 'prospek' ? prospects : customers).map(p => p.category))].map(cat => (
+                      <option key={cat} value={cat}>{cat}</option>
+                    ))}
+                  </select>
+               </div>
+
+               <div className="search-box" style={{ padding: '1.5rem', background: 'var(--bg-app)' }}>
+                  <h4 style={{ marginBottom: '1rem' }}>4. Sapaan Pertama (Opening)</h4>
+                  <textarea 
+                    className="input-styled" 
+                    rows={3} 
+                    style={{ border: '1px solid rgba(0,0,0,0.05)', resize: 'none' }}
+                    value={openingMsg}
+                    onChange={(e) => setOpeningMsg(e.target.value)}
+                  ></textarea>
                </div>
             </div>
 
-            <div className="search-box" style={{ padding: '1.5rem', background: 'var(--bg-app)' }}>
-               <h4 style={{ marginBottom: '1rem' }}>Sapaan Pertama (Opening Trigger)</h4>
-               <textarea 
-                  className="input-styled" 
-                  rows={3} 
-                  style={{ border: '1px solid rgba(0,0,0,0.05)', resize: 'none' }}
-                  value={openingMsg}
-                  onChange={(e) => setOpeningMsg(e.target.value)}
-                ></textarea>
-                <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '0.5rem' }}>
-                  Sapaan ini akan dikirim secara *blast*. Balasan dari prospek selanjutnya akan diambil alih mandiri oleh Agen AI.
-                </div>
-            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+               <div className="search-box" style={{ padding: '1.5rem', background: 'var(--bg-app)', flex: 1, display: 'flex', flexDirection: 'column' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                    <h4 style={{ margin: 0 }}>3. Pilih Target ({selectedTargetIds.size})</h4>
+                    <button 
+                      onClick={() => {
+                        const candidates = (targetType === 'prospek' ? prospects : customers).filter(p => campaignCategory === 'All' || p.category === campaignCategory);
+                        if (selectedTargetIds.size === candidates.length) {
+                          setSelectedTargetIds(new Set());
+                        } else {
+                          setSelectedTargetIds(new Set(candidates.map(c => c.id)));
+                        }
+                      }}
+                      style={{ fontSize: '0.75rem', background: 'none', border: 'none', color: 'var(--sidebar-gradient)', cursor: 'pointer', fontWeight: 700 }}
+                    >
+                      {selectedTargetIds.size > 0 ? 'Deselect All' : 'Select All'}
+                    </button>
+                  </div>
+                  <div style={{ flex: 1, overflowY: 'auto', maxHeight: '300px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                    {(targetType === 'prospek' ? prospects : customers)
+                      .filter(p => campaignCategory === 'All' || p.category === campaignCategory)
+                      .map(p => (
+                        <label key={p.id} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px', background: 'white', borderRadius: '10px', border: '1px solid rgba(0,0,0,0.02)', cursor: 'pointer' }}>
+                          <input 
+                            type="checkbox" 
+                            checked={selectedTargetIds.has(p.id)}
+                            onChange={() => {
+                              const newSet = new Set(selectedTargetIds);
+                              if (newSet.has(p.id)) newSet.delete(p.id);
+                              else newSet.add(p.id);
+                              setSelectedTargetIds(newSet);
+                            }}
+                          />
+                          <div style={{ fontSize: '0.9rem' }}>
+                            <div style={{ fontWeight: 600 }}>{p.company_name}</div>
+                            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{p.category} • {p.phone_number}</div>
+                          </div>
+                        </label>
+                      ))}
+                  </div>
+               </div>
 
-            <button 
-              className="btn-approve" 
-              onClick={handleLaunchCampaign}
-              disabled={isLaunching || prospects.length === 0}
-              style={{ width: '100%', padding: '1rem', justifyContent: 'center', fontSize: '1.1rem', background: 'var(--sidebar-gradient)', color: 'white' }}
-            >
-              {isLaunching ? 'Launching...' : (
-                <>
-                  <Play size={20} fill="currentColor" /> Start Autonomous Outreach
-                </>
-              )}
-            </button>
+               <button 
+                className="btn-approve" 
+                onClick={handleLaunchCampaign}
+                disabled={isLaunching || selectedTargetIds.size === 0}
+                style={{ width: '100%', padding: '1.2rem', justifyContent: 'center', fontSize: '1.1rem', background: 'var(--sidebar-gradient)', color: 'white', borderRadius: '16px' }}
+              >
+                {isLaunching ? 'Launching...' : (
+                  <>
+                    <Play size={20} fill="currentColor" /> Start Campaign for {selectedTargetIds.size} Targets
+                  </>
+                )}
+              </button>
+            </div>
           </div>
         </div>
       )}
 
+      {/* 3. AI Playground */}
+      {activeSubTab === 'playground' && (
+        <div style={{ maxWidth: '900px' }}>
+          <AIPlayground persona={persona} onPersonaUpdate={setPersona} />
+        </div>
+      )}
+
+      {/* 4. AI Knowledge Library */}
+      {activeSubTab === 'knowledge' && (
+        <AIKnowledgeBase persona={persona} onPersonaUpdate={setPersona} />
+      )}
+
       {/* 3. Live AI Inbox */}
       {activeSubTab === 'inbox' && (
-        <div style={{ display: 'grid', gridTemplateColumns: 'minmax(250px, 1fr) 2fr', gap: '1.5rem', height: '600px' }}>
-          
-          {/* Conversation List */}
-          <div className="ui-card" style={{ padding: '0', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-            <div style={{ padding: '1.2rem', borderBottom: '1px solid rgba(0,0,0,0.05)', background: '#F9FAFC' }}>
-              <h3 style={{ margin: 0, fontSize: '1.1rem' }}>Live Interactions</h3>
+          {/* 1. Global Interaction Sidebar (Boss Mode) */}
+          <div className="ui-card" style={{ padding: '0', display: 'flex', flexDirection: 'column', overflow: 'hidden', background: '#F9FAFC', borderRight: '1px solid rgba(0,0,0,0.05)' }}>
+            <div style={{ padding: '1.2rem', borderBottom: '1px solid rgba(0,0,0,0.05)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div style={{ fontWeight: 800, fontSize: '1rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <MessageCircle size={18} /> Monitors
+              </div>
+              <div className="badge-styled" style={{ background: 'var(--accent-purple)', color: 'white' }}>Live</div>
             </div>
             
             <div style={{ overflowY: 'auto', flex: 1 }}>
-              {prospects.length === 0 ? (
-                <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-muted)' }}>Belum ada prospek disetujui.</div>
+              {([...prospects, ...customers]).length === 0 ? (
+                <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.9rem' }}>Memory is empty. Start a campaign!</div>
               ) : (
-                prospects.map(p => (
+                ([...prospects, ...customers]).map(p => (
                   <div 
                     key={p.id}
-                    onClick={() => setActiveChatId(p.id)}
+                    onClick={() => setActiveChatId(p.id || '')}
                     style={{ 
-                      padding: '1rem 1.2rem', 
+                      padding: '1.2rem', 
                       borderBottom: '1px solid rgba(0,0,0,0.05)', 
                       cursor: 'pointer',
-                      background: activeChatId === p.id ? 'var(--bg-app)' : 'white'
+                      background: activeChatId === p.id ? 'white' : 'transparent',
+                      transition: 'all 0.2s ease',
+                      borderLeft: activeChatId === p.id ? '4px solid var(--accent-purple)' : '4px solid transparent',
+                      position: 'relative'
                     }}
                   >
-                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.3rem' }}>
-                      <span style={{ fontWeight: 600 }}>{p.company_name}</span>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.4rem' }}>
+                      <span style={{ fontWeight: 700, fontSize: '0.95rem' }}>{p.company_name}</span>
+                      {p.status === 'Approved' && <Zap size={14} color="var(--accent-orange)" />}
                     </div>
-                    <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
-                      {p.category} • {p.area_region}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                        {p.category}
+                      </span>
+                      <div className="status-dot-active" style={{ width: 8, height: 8, background: 'var(--accent-green)', borderRadius: '50%' }}></div>
                     </div>
                   </div>
                 ))
@@ -293,20 +478,24 @@ export const SmartActionHub: React.FC<SmartActionHubProps> = ({ prospects, activ
           <div className="ui-card" style={{ padding: '0', display: 'flex', flexDirection: 'column', overflow: 'hidden', background: '#F8F9FB' }}>
             {activeChatId ? (
               <>
-                {/* Chat Header */}
-                <div style={{ padding: '1rem 1.5rem', background: 'white', borderBottom: '1px solid rgba(0,0,0,0.05)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem' }}>
-                    <div style={{ width: 40, height: 40, borderRadius: '50%', background: 'var(--accent-blue)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#4A6CF7' }}>
-                       <User size={20} />
+                {/* 2. Elite Chat Header */}
+                <div style={{ padding: '1.5rem', background: 'white', borderBottom: '1px solid rgba(0,0,0,0.05)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                    <div style={{ width: 45, height: 45, borderRadius: '14px', background: 'rgba(74, 108, 247, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--accent-blue)', boxShadow: '0 4px 12px rgba(74, 108, 247, 0.05)' }}>
+                       <User size={24} />
                     </div>
                     <div>
-                      <div style={{ fontWeight: 600 }}>{prospects.find(p => p.id === activeChatId)?.company_name}</div>
-                      <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>via WhatsApp Business</div>
+                      <div style={{ fontWeight: 800, fontSize: '1.1rem' }}>{([...prospects, ...customers]).find(p => p.id === activeChatId)?.company_name}</div>
+                      <div style={{ fontSize: '0.8rem', color: 'var(--accent-green)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '4px' }}>
+                        <div style={{ width: 6, height: 6, background: 'currentColor', borderRadius: '50%' }}></div>
+                        Sarah as Smart Agent AI • Listening...
+                      </div>
                     </div>
                   </div>
                   
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--accent-green)', fontSize: '0.85rem', fontWeight: 600 }}>
-                    <Bot size={16} /> AI Active
+                  <div style={{ display: 'flex', gap: '0.5rem' }}>
+                    <div className="badge-styled" style={{ border: '1px solid #10b981', color: '#10b981', background: 'rgba(16, 185, 129, 0.05)' }}>WhatsApp</div>
+                    <div className="badge-styled" style={{ border: '1px solid #6366f1', color: '#6366f1', background: 'rgba(99, 102, 241, 0.05)' }}>High Priority</div>
                   </div>
                 </div>
 
@@ -325,21 +514,67 @@ export const SmartActionHub: React.FC<SmartActionHubProps> = ({ prospects, activ
                         <div key={msg.id} style={{ display: 'flex', justifyContent: isProspect ? 'flex-start' : 'flex-end', alignItems: 'flex-end', gap: '0.5rem' }}>
                           {isProspect && <div style={{ width: 30, height: 30, borderRadius: '50%', background: 'var(--text-muted)', display: 'flex', alignItems:'center', justifyContent:'center', color:'white' }}><User size={16}/></div>}
                           
-                          <div style={{ maxWidth: '70%', display: 'flex', flexDirection: 'column', alignItems: isProspect ? 'flex-start' : 'flex-end' }}>
+                          <div style={{ maxWidth: '75%', display: 'flex', flexDirection: 'column', alignItems: isProspect ? 'flex-start' : 'flex-end' }}>
                              <div style={{ 
-                               background: isProspect ? 'white' : (isAI ? 'var(--accent-orange)' : 'var(--sidebar-gradient)'), 
-                               color: isProspect ? 'var(--text-main)' : 'white',
-                               padding: '0.8rem 1.2rem',
+                               background: isProspect ? 'white' : (isAI ? (msg.is_draft ? 'rgba(112, 40, 250, 0.05)' : 'var(--accent-orange)') : 'var(--sidebar-gradient)'), 
+                               color: isProspect ? 'var(--text-main)' : (msg.is_draft ? 'var(--text-main)' : 'white'),
+                               padding: '1rem 1.4rem',
                                borderRadius: '16px',
                                borderBottomLeftRadius: isProspect ? 0 : '16px',
                                borderBottomRightRadius: isProspect ? '16px' : 0,
-                               boxShadow: 'var(--shadow-card)',
-                               fontSize: '0.95rem'
+                               boxShadow: msg.is_draft ? 'inset 0 0 0 2px rgba(112, 40, 250, 0.1)' : 'var(--shadow-card)',
+                               fontSize: '0.95rem',
+                               position: 'relative',
+                               border: msg.is_draft ? '2px dashed var(--sidebar-gradient)' : 'none'
                              }}>
+                               {msg.is_draft && (
+                                 <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.7rem', color: 'var(--sidebar-gradient)', fontWeight: 700, marginBottom: '8px', textTransform: 'uppercase' }}>
+                                   <Bot size={12} /> AI Draft (Review Required)
+                                 </div>
+                               )}
                                {msg.content}
+
+                               {msg.is_draft && (
+                                 <div style={{ marginTop: '1.2rem', display: 'flex', gap: '8px' }}>
+                                   <button 
+                                     onClick={() => handleApproveDraft(msg)}
+                                     style={{ 
+                                       flex: 1, 
+                                       padding: '6px 12px', 
+                                       background: 'var(--sidebar-gradient)', 
+                                       color: 'white', 
+                                       border: 'none', 
+                                       borderRadius: '8px', 
+                                       fontSize: '0.8rem', 
+                                       fontWeight: 600,
+                                       cursor: 'pointer',
+                                       display: 'flex',
+                                       alignItems: 'center',
+                                       justifyContent: 'center',
+                                       gap: '4px'
+                                     }}
+                                   >
+                                     <CheckCircle2 size={14} /> Approve & Send
+                                   </button>
+                                   <button 
+                                     style={{ 
+                                       padding: '6px 12px', 
+                                       background: '#eee', 
+                                       color: '#666', 
+                                       border: 'none', 
+                                       borderRadius: '8px', 
+                                       fontSize: '0.8rem', 
+                                       fontWeight: 600,
+                                       cursor: 'pointer'
+                                     }}
+                                   >
+                                     Edit
+                                   </button>
+                                 </div>
+                               )}
                              </div>
                              <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '4px' }}>
-                                {isAI ? 'Gemini AI Agent' : (isProspect ? 'Prospect (Client)' : 'Dicky (Staff)')}
+                                {isAI ? (msg.is_draft ? 'Drafted by Gemini' : 'Sent by Gemini AI') : (isProspect ? 'Prospect (Client)' : 'Dicky (Staff)')}
                              </span>
                           </div>
 

@@ -1,4 +1,12 @@
 export const CATEGORIES = [
+  { id: 'horeca', name: 'Horeca (Hotel, Resto, Cafe)' },
+  { id: 'frozen_food', name: 'Toko Frozen Food' },
+  { id: 'meat_grinding', name: 'Penggilingan Daging' },
+  { id: 'warung', name: 'Warung & UMKM' },
+  { id: 'catering_services', name: 'Catering & Services' },
+  { id: 'general_trade', name: 'General Trade' },
+  { id: 'modern_trade', name: 'Modern Trade' },
+  { id: 'manufacture', name: 'Manufacture (Pabrik)' },
   { id: 'restaurant', name: 'Restoran & Kuliner' },
   { id: 'cafe', name: 'Kafe & Coffee Shop' },
   { id: 'school', name: 'Sekolah & Institusi Pendidikan' },

@@ -1,25 +1,32 @@
 import React from 'react';
-import { LayoutDashboard, Search, UserCheck, Zap, Settings, Hexagon } from 'lucide-react';
+import { LayoutDashboard, Search, UserCheck, Zap, Settings, Hexagon, Users } from 'lucide-react';
 
 interface SidebarProps {
   activeTab: string;
   onTabChange: (tab: string) => void;
+  appName?: string;
+  appLogo?: string | null;
 }
 
-export const Sidebar: React.FC<SidebarProps> = ({ activeTab, onTabChange }) => {
+export const Sidebar: React.FC<SidebarProps> = ({ activeTab, onTabChange, appName = "Smart Agent", appLogo }) => {
   const menuItems = [
     { id: 'dashboard', label: 'Overview', icon: LayoutDashboard },
     { id: 'smartlead', label: 'Target Search', icon: Search },
     { id: 'prospek', label: 'Prospek', icon: UserCheck },
+    { id: 'customers', label: 'Customers', icon: Users },
     { id: 'action', label: 'AI Action Hub', icon: Zap },
-    { id: 'setting', label: 'Integrations', icon: Settings },
+    { id: 'setting', label: 'Profiles & API', icon: Settings },
   ];
 
   return (
     <aside className="sidebar">
-      <div className="brand-logo">
-        <Hexagon size={32} color="var(--accent-yellow)" fill="var(--accent-yellow)" />
-        Smart Agent
+      <div className="brand-logo" style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+        {appLogo ? (
+          <img src={appLogo} alt="Logo" style={{ width: '32px', height: '32px', borderRadius: '8px', objectFit: 'cover' }} />
+        ) : (
+          <Hexagon size={32} color="var(--accent-yellow)" fill="var(--accent-yellow)" />
+        )}
+        <span style={{ fontWeight: 800, fontSize: '1.2rem', letterSpacing: '-0.5px' }}>{appName}</span>
       </div>
       
       <nav className="nav-menu">

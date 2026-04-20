@@ -1,4 +1,4 @@
-import { supabase } from './supabase';
+import { getSupabase } from './supabase';
 
 export interface Campaign {
   id?: string;
@@ -9,7 +9,8 @@ export interface Campaign {
 }
 
 export const fetchCampaigns = async (): Promise<Campaign[]> => {
-  const { data, error } = await supabase
+  const db = getSupabase();
+  const { data, error } = await db
     .from('campaigns')
     .select('*')
     .order('created_at', { ascending: false });
@@ -22,7 +23,8 @@ export const fetchCampaigns = async (): Promise<Campaign[]> => {
 };
 
 export const createCampaign = async (campaign: Campaign) => {
-  const { data, error } = await supabase
+  const db = getSupabase();
+  const { data, error } = await db
     .from('campaigns')
     .insert([campaign])
     .select()

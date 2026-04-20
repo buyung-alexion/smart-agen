@@ -5,12 +5,14 @@ interface StatsBarProps {
   totalLeads: number;
   newLeadsToday: number;
   activeRegions: number;
+  projectedValue: number;
 }
 
 export const StatsBar: React.FC<StatsBarProps> = ({ 
   totalLeads, 
   newLeadsToday, 
-  activeRegions 
+  activeRegions,
+  projectedValue
 }) => {
   return (
     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '2rem' }}>
@@ -31,7 +33,7 @@ export const StatsBar: React.FC<StatsBarProps> = ({
             <div style={{ fontSize: '1.8rem', fontWeight: 700 }}>{totalLeads}</div>
           </div>
           <div style={{ fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '4px' }}>
-            <ArrowUpRight size={16} /> +12%
+            <ArrowUpRight size={16} /> Live
           </div>
         </div>
       </div>
@@ -82,14 +84,16 @@ export const StatsBar: React.FC<StatsBarProps> = ({
       <div className="ui-card stat-card-gradient gradient-orange">
         <div className="stat-header">
           <Building2 size={24} />
-          <div style={{ fontSize: '0.8rem', fontWeight: 700, padding: '4px 8px', borderRadius: '8px', background: 'rgba(0,0,0,0.1)' }}>PREMIUM</div>
+          <div style={{ fontSize: '0.8rem', fontWeight: 700, padding: '4px 8px', borderRadius: '8px', background: 'rgba(0,0,0,0.1)' }}>ESTIMATED</div>
         </div>
         <div className="stat-footer">
           <div>
             <div style={{ fontSize: '0.85rem', opacity: 0.8, marginBottom: '4px', color: '#333' }}>Projected Value</div>
-            <div style={{ fontSize: '1.8rem', fontWeight: 800 }}>$3,580</div>
+            <div style={{ fontSize: '1.8rem', fontWeight: 800 }}>
+              {projectedValue.toLocaleString('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 })}
+            </div>
           </div>
-          <div style={{ fontSize: '0.9rem', fontWeight: 600 }}>READY</div>
+          <div style={{ fontSize: '0.9rem', fontWeight: 600 }}>ACTIVE</div>
         </div>
       </div>
       
