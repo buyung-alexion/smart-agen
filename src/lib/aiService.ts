@@ -90,43 +90,57 @@ export const generateAIDraft = async (
     `;
 
     const genAI = new GoogleGenerativeAI(finalKey);
-    const model = genAI.getGenerativeModel({ 
-      model: "gemini-1.5-pro-latest",
-      systemInstruction: systemPrompt,
-    });
+    let model;
+    let text = "";
 
-    const lastMsg = history.length > 0 ? history[history.length - 1].content : '';
+    try {
+      // First attempt with Pro for deep reasoning
+      model = genAI.getGenerativeModel({ 
+        model: "gemini-1.5-pro-latest", 
+        systemInstruction: systemPrompt,
+      });
 
-    // Gemini requirement: First message in history must be 'user'
-    const validHistory = history.filter(msg => ['prospect', 'human', 'user', 'ai'].includes(msg.sender_type));
-    
-    const firstUserIndex = validHistory.findIndex(msg => ['prospect', 'human', 'user'].includes(msg.sender_type));
-    const cleanedHistory = firstUserIndex !== -1 ? validHistory.slice(firstUserIndex) : [];
+      const lastMsg = history.length > 0 ? history[history.length - 1].content : '';
+      const validHistory = history.filter(msg => ['prospect', 'human', 'user', 'ai'].includes(msg.sender_type));
+      const firstUserIndex = validHistory.findIndex(msg => ['prospect', 'human', 'user'].includes(msg.sender_type));
+      const cleanedHistory = firstUserIndex !== -1 ? validHistory.slice(firstUserIndex) : [];
 
-    const chatHistory = cleanedHistory.map(msg => ({
-      role: ['prospect', 'human', 'user'].includes(msg.sender_type) ? 'user' : 'model',
-      parts: [{ text: msg.content }]
-    }));
+      const chatHistory = cleanedHistory.map(msg => ({
+        role: ['prospect', 'human', 'user'].includes(msg.sender_type) ? 'user' : 'model',
+        parts: [{ text: msg.content }]
+      }));
 
-    // Start Chat
-    const chat = model.startChat({
-      history: chatHistory.slice(0, -1),
-      generationConfig: {
-        maxOutputTokens: 1500,
-        temperature: 0.7,
-      },
-    });
+      const chat = model.startChat({
+        history: chatHistory.slice(0, -1),
+        generationConfig: {
+          maxOutputTokens: 1500,
+          temperature: 0.7,
+        },
+      });
 
-    const result = await chat.sendMessage(lastMsg);
-    const response = await result.response;
-    const text = response.text();
+      const result = await chat.sendMessage(lastMsg);
+      const response = await result.response;
+      text = response.text();
+    } catch (proError) {
+      console.warn("Pro model failed, falling back to Flash:", proError);
+      // Fallback to Flash
+      model = genAI.getGenerativeModel({ 
+        model: "gemini-1.5-flash", 
+        systemInstruction: systemPrompt,
+      });
+      
+      const lastMsg = history.length > 0 ? history[history.length - 1].content : '';
+      const result = await model.generateContent(lastMsg);
+      const response = await result.response;
+      text = response.text();
+    }
 
     // Parse XML format
     const reasoningMatch = text.match(/<reasoning>([\s\S]*?)<\/reasoning>/);
     const answerMatch = text.match(/<answer>([\s\S]*?)<\/answer>/);
 
     return {
-      reasoning: reasoningMatch ? reasoningMatch[1].trim() : "Reasoning skipped by model.",
+      reasoning: reasoningMatch ? reasoningMatch[1].trim() : "Reasoning skipped or using fallback mode.",
       content: answerMatch ? answerMatch[1].trim() : text.replace(/<[\s\S]*?>/g, '').trim()
     };
 
