@@ -186,34 +186,39 @@ function App() {
   };
 
   // 3. Approval Logic (Save to DB)
-  const handleApprove = async (id: string) => {
-    const leadToApprove = scrapedLeads.find(l => l.id === id);
-    if (!leadToApprove) return;
+  const handleApprove = async (lead: Lead) => {
+    if (!lead) return;
     
     setIsSaving(true);
-    const { error } = await db
-      .from('prospeks')
-      .insert([{
-        company_name: leadToApprove.company_name,
-        category: leadToApprove.category,
-        address: leadToApprove.address,
-        area_region: leadToApprove.area_region,
-        phone_number: leadToApprove.phone_number,
-        map_location: leadToApprove.map_location,
-        rating: leadToApprove.rating,
-        status: 'Approved'
-      }]);
+    try {
+      const { error } = await db
+        .from('prospeks')
+        .insert([{
+          company_name: lead.company_name,
+          category: lead.category,
+          address: lead.address,
+          area_region: lead.area_region,
+          phone_number: lead.phone_number,
+          map_location: lead.map_location,
+          rating: lead.rating,
+          status: 'Approved'
+        }]);
 
-    if (!error) {
-      // Refresh list
-      fetchProspects();
-      // Remove from candidate list
-      setScrapedLeads(prev => prev.filter(l => l.id !== id));
-    } else {
-      console.error('Error saving lead:', error);
-      alert('Failed to save lead to database.');
+      if (!error) {
+        // Refresh list
+        fetchProspects();
+        // Remove from candidate list
+        setScrapedLeads(prev => prev.filter(l => l.id !== lead.id));
+        alert(`${lead.company_name} berhasil ditambahkan ke Prospek!`);
+      } else {
+        console.error('Error saving lead:', error);
+        alert('Gagal menyimpan data ke database.');
+      }
+    } catch (err) {
+      console.error('Approval logic failed:', err);
+    } finally {
+      setIsSaving(false);
     }
-    setIsSaving(false);
   };
 
   const handleConvertToCustomer = async (lead: Lead) => {
