@@ -14,8 +14,8 @@ export const generateAIDraft = async (
   const finalKey = apiKey || import.meta.env.VITE_GEMINI_API_KEY;
 
   if (!finalKey) {
-    console.warn("Gemini API Key missing. Falling back to simulation mode.");
-    return fallbackSimulation(persona, history);
+    console.warn("Gemini API Key missing.");
+    return "Maaf, sepertinya saya belum dihubungkan ke asisten AI (Gemini Key belum dipasang). Tolong cek menu Settings ya!";
   }
 
   try {
@@ -71,22 +71,6 @@ export const generateAIDraft = async (
 
   } catch (err) {
     console.error("Gemini AI Error:", err);
-    return fallbackSimulation(persona, history);
+    return "Maaf, sepertinya saya sedang mengalami kendala koneksi ke server pusat. Bisa tolong ulangi pesan Anda?";
   }
-};
-
-/**
- * Fallback logic if AI fails or Key is missing
- */
-const fallbackSimulation = (persona: Persona, history: ChatMessage[]): string => {
-  const { tone, goal } = persona;
-  const lastMsg = history.length > 0 ? history[history.length - 1].content : '';
-  
-  let response = "";
-  if (tone.includes('Sopan')) response = "Halo, bapak/ibu. ";
-  else if (tone.includes('Santai')) response = "Halo kak, ";
-  
-  if (goal) response += `Terkait hal tersebut, target kami adalah ${goal.toLowerCase()}. `;
-  
-  return response + "Bagaimana menurut Anda? (Note: AI Simulation Mode active)";
 };
