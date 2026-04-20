@@ -49,7 +49,7 @@ export const AIPlayground: React.FC<AIPlaygroundProps> = ({ persona, onPersonaUp
 
     try {
       // Detection: Command/Training vs Chat
-      const isInstruction = /tolong|perintah|mulai sekarang|setiap|gunakan|panggil|tawarkan|jangan|gaya/i.test(input);
+      const isInstruction = /tolong|perintah|maka|mulai sekarang|setiap|gunakan|panggil|tawarkan|jangan|gaya|pelajari|menyesuaikan|ingat|bahasaku/i.test(input);
 
       if (isInstruction) {
         setIsSaving(true);
