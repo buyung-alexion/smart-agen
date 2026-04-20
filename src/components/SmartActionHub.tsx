@@ -682,6 +682,11 @@ export const SmartActionHub: React.FC<SmartActionHubProps> = ({ prospects, custo
                         </div>
                       )
                     })
+                  {isThinking && (
+                    <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: '8px', opacity: 0.7, padding: '0 1rem' }}>
+                      <span style={{ fontSize: '0.8rem', color: 'var(--sidebar-gradient)', fontWeight: 600 }}>Sarah is thinking...</span>
+                      <div className="status-dot-active" style={{ width: 6, height: 6, background: 'var(--sidebar-gradient)' }}></div>
+                    </div>
                   )}
                 </div>
 
