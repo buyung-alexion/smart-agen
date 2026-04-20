@@ -646,6 +646,8 @@ function App() {
                   <DataTable 
                     leads={filteredProspects} 
                     onApprove={handleConvertToCustomer} 
+                    onEdit={openEditModal}
+                    onDelete={handleDeleteProspect}
                     approveLabel="Close Deal" 
                   />
                 </div>

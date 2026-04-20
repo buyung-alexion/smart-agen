@@ -45,7 +45,7 @@ export const DataTable: React.FC<DataTableProps> = ({
             <th>Contact & Location</th>
             <th>Status</th>
             <th>Trust Score</th>
-            {!hideApprove && <th style={{ textAlign: 'right' }}>Actions</th>}
+            {(!hideApprove || onEdit || onDelete) && <th style={{ textAlign: 'right' }}>Actions</th>}
           </tr>
         </thead>
         <tbody>
@@ -86,7 +86,7 @@ export const DataTable: React.FC<DataTableProps> = ({
                   </div>
                 </div>
               </td>
-              {!hideApprove && (
+              {(!hideApprove || onEdit || onDelete) && (
                 <td style={{ textAlign: 'right' }}>
                   <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
                     {lead.map_location && (
@@ -101,7 +101,7 @@ export const DataTable: React.FC<DataTableProps> = ({
                         <ExternalLink size={16} color="var(--text-muted)" />
                       </a>
                     )}
-                    {onApprove && (
+                    {onApprove && !hideApprove && (
                       <button 
                         className="hero-btn" 
                         style={{ padding: '0.5rem 1.2rem', fontSize: '0.85rem' }}
