@@ -11,12 +11,11 @@ export const generateAIDraft = async (
   history: ChatMessage[], 
   apiKey?: string
 ): Promise<string> => {
-  const fallbackGeminiKey = 'AIzaSyB9Qu3_euukAfiWlL4GZiiwYOKBUTp7JNw';
-  const finalKey = apiKey || import.meta.env.VITE_GEMINI_API_KEY || fallbackGeminiKey;
+  const finalKey = apiKey || import.meta.env.VITE_GEMINI_API_KEY;
 
   if (!finalKey) {
     console.warn("Gemini API Key missing.");
-    return "Maaf, sepertinya saya belum dihubungkan ke asisten AI (Gemini Key belum dipasang). Tolong cek menu Settings ya!";
+    return "Maaf, sepertinya saya masih belum punya 'otak' (API Key). Silakan buat API Key baru di Google AI Studio, lalu tempelkan di menu Settings (Profiles & API) website ini ya! Ingat, jangan kirim kuncinya di chat agar tidak diblokir Google lagi. 😊";
   }
 
   try {
