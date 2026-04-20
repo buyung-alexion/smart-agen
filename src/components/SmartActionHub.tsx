@@ -103,6 +103,15 @@ export const SmartActionHub: React.FC<SmartActionHubProps> = ({ prospects, activ
       setCampaignProgress(0);
     }
   };
+  const openWhatsApp = (phone: string, text: string) => {
+    // Basic sanitization: remove non-digits
+    const cleanPhone = phone.replace(/\D/g, '');
+    // Ensure it starts with a country code (if it starts with 0, replace with 62)
+    const formattedPhone = cleanPhone.startsWith('0') ? '62' + cleanPhone.substring(1) : cleanPhone;
+    
+    const url = `https://wa.me/${formattedPhone}?text=${encodeURIComponent(text)}`;
+    window.open(url, '_blank');
+  };
 
   useEffect(() => {
     if (activeChatId) {
@@ -154,9 +163,15 @@ export const SmartActionHub: React.FC<SmartActionHubProps> = ({ prospects, activ
 
   const handleApproveDraft = async (msg: ChatMessage) => {
     if (!msg.id) return;
+    const activeLead = ([...prospects, ...customers]).find(p => p.id === activeChatId);
+    
     try {
       await updateMessageStatus(msg.id, { is_draft: false });
-      // The real-time subscription will update the UI
+      
+      // Auto-Navigator: Open WhatsApp with the approved text
+      if (activeLead?.phone_number) {
+        openWhatsApp(activeLead.phone_number, msg.content);
+      }
     } catch (err) {
       console.error('Failed to approve draft:', err);
       alert('Gagal menyetujui draf.');
@@ -178,13 +193,20 @@ export const SmartActionHub: React.FC<SmartActionHubProps> = ({ prospects, activ
 
   const handleSendMessage = async () => {
     if (!newMessage.trim() || !activeChatId) return;
-    
+    const activeLead = ([...prospects, ...customers]).find(p => p.id === activeChatId);
+
     try {
       await sendMessage({
         lead_id: activeChatId,
         sender_type: 'human',
         content: newMessage
       });
+      
+      // Open WhatsApp for manual response too
+      if (activeLead?.phone_number) {
+        openWhatsApp(activeLead.phone_number, newMessage);
+      }
+      
       setNewMessage('');
     } catch (err) {
       console.error(err);
