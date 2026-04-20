@@ -6,6 +6,7 @@ import { fetchMessages, sendMessage, subscribeToMessages, updateMessageStatus, t
 import { generateAIDraft } from '../lib/aiService';
 
 import { fetchCampaigns, createCampaign, type Campaign } from '../lib/campaignService';
+import { updateLeadMuteStatus } from '../lib/leadService';
 import { AIPlayground } from './AIPlayground';
 import { AIKnowledgeBase } from './AIKnowledgeBase';
 
@@ -157,6 +158,10 @@ export const SmartActionHub: React.FC<SmartActionHubProps> = ({ prospects, custo
 
   const triggerAIDraft = async (leadId: string, currentHistory: ChatMessage[]) => {
     if (isThinking) return;
+    
+    const activeLead = ([...prospects, ...customers]).find(p => p.id === leadId);
+    if (activeLead?.ai_muted) return; // DON'T DRAFT IF MUTED
+    
     setIsThinking(true);
     
     try {
@@ -226,6 +231,12 @@ export const SmartActionHub: React.FC<SmartActionHubProps> = ({ prospects, custo
         content: newMessage
       });
       
+      // Auto-Mute Sarah if human sends a manual message (Optional, but recommended)
+      if (activeLead && !activeLead.ai_muted) {
+        const type = prospects.find(p => p.id === activeChatId) ? 'prospek' : 'customer';
+        await updateLeadMuteStatus(activeChatId, true, type);
+      }
+      
       // Open WhatsApp for manual response too
       if (activeLead?.phone_number) {
         openWhatsApp(activeLead.phone_number, newMessage);
@@ -234,6 +245,24 @@ export const SmartActionHub: React.FC<SmartActionHubProps> = ({ prospects, custo
       setNewMessage('');
     } catch (err) {
       console.error(err);
+    }
+  };
+
+  const handleToggleMute = async () => {
+    if (!activeChatId) return;
+    const activeLead = ([...prospects, ...customers]).find(p => p.id === activeChatId);
+    if (!activeLead) return;
+    
+    const newStatus = !activeLead.ai_muted;
+    const type = prospects.find(p => p.id === activeChatId) ? 'prospek' : 'customer';
+    
+    try {
+      await updateLeadMuteStatus(activeChatId, newStatus, type);
+      // Update local state temporarily for immediate feedback (Since props might take a refresh)
+      activeLead.ai_muted = newStatus;
+      setPersona({...persona}); // Force re-render
+    } catch (err) {
+      console.error('Failed to toggle mute:', err);
     }
   };
 
@@ -511,9 +540,12 @@ export const SmartActionHub: React.FC<SmartActionHubProps> = ({ prospects, custo
                       {p.status === 'Approved' && <Zap size={14} color="var(--accent-orange)" />}
                     </div>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                        {p.category}
-                      </span>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                          {p.category}
+                        </span>
+                        {p.ai_muted && <div style={{ fontSize: '0.65rem', padding: '2px 6px', background: '#eee', borderRadius: '4px', color: '#666' }}>Muted</div>}
+                      </div>
                       <div className="status-dot-active" style={{ width: 8, height: 8, background: 'var(--accent-green)', borderRadius: '50%' }}></div>
                     </div>
                   </div>
@@ -542,8 +574,26 @@ export const SmartActionHub: React.FC<SmartActionHubProps> = ({ prospects, custo
                   </div>
                   
                   <div style={{ display: 'flex', gap: '0.5rem' }}>
+                    <button 
+                      onClick={handleToggleMute}
+                      style={{ 
+                        padding: '6px 12px', 
+                        borderRadius: '8px', 
+                        border: '1px solid #ddd', 
+                        background: activeLead?.ai_muted ? 'var(--accent-orange)' : 'white', 
+                        color: activeLead?.ai_muted ? 'white' : 'var(--text-main)',
+                        fontSize: '0.8rem',
+                        fontWeight: 600,
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '6px'
+                      }}
+                    >
+                      {activeLead?.ai_muted ? <CheckCircle2 size={14}/> : <Bot size={14}/>}
+                      {activeLead?.ai_muted ? 'Human Takeover Active' : 'AI Assistant Active'}
+                    </button>
                     <div className="badge-styled" style={{ border: '1px solid #10b981', color: '#10b981', background: 'rgba(16, 185, 129, 0.05)' }}>WhatsApp</div>
-                    <div className="badge-styled" style={{ border: '1px solid #6366f1', color: '#6366f1', background: 'rgba(99, 102, 241, 0.05)' }}>High Priority</div>
                   </div>
                 </div>
 

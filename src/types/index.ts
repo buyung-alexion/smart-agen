@@ -9,6 +9,7 @@ export interface Lead {
   map_location: string;
   rating: number;
   status: string;
+  ai_muted?: boolean;
 }
 
 export interface ChatMessage {
