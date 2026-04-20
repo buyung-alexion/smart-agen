@@ -9,7 +9,8 @@ import type { ChatMessage } from '../types';
 export const generateAIDraft = async (
   persona: Persona, 
   history: ChatMessage[], 
-  apiKey?: string
+  apiKey?: string,
+  lead?: Lead // Add lead context
 ): Promise<string> => {
   const finalKey = apiKey || import.meta.env.VITE_GEMINI_API_KEY;
 
@@ -25,6 +26,15 @@ export const generateAIDraft = async (
       .map(item => `[${item.category}] ${item.title}: ${item.content}`)
       .join('\n');
 
+    const customerContext = lead ? `
+      TARGET CUSTOMER INFO:
+      - Company: ${lead.company_name}
+      - Category: ${lead.category}
+      - Location: ${lead.area_region}
+      - Detailed Address: ${lead.address}
+      - Trust Score (Rating): ${lead.rating}
+    ` : "CONTEXT: No specific customer data provided yet (Playground Mode).";
+
     const systemPrompt = `
       NAMA AGEN: ${persona.name}
       PERAN: AI Sales & Relationship Agent
@@ -33,6 +43,8 @@ export const generateAIDraft = async (
       KONTEKS UTAMA:
       Anda adalah ${persona.name}, agen AI yang diciptakan dan dilatih oleh pemilik bisnis ini untuk menangani Customer dan Prospect dengan cerdas.
       
+      ${customerContext}
+
       GOAL UTAMA: ${persona.goal}
       GAYA BAHASA: ${persona.tone}
       
@@ -47,11 +59,12 @@ export const generateAIDraft = async (
       ${persona.knowledge_base}
 
       PRINSIP BERPIKIR (REASONING):
-      1. Prioritas Trainer: Instruksi di atas adalah hukum tertinggi. Gunakan nalar Anda untuk menerjemahkan instruksi tersebut ke dalam percakapan yang natural.
-      2. Analisis Dulu: Sebelum menjawab, pahami maksud terdalam dari pesan customer.
-      3. Soul & Humanly: Gunakan Bahasa Indonesia yang sangat natural, santai (sesuai gaya Indonesia), dan tidak seperti template robot.
-      4. Fokus pada Goal: Setiap pesan harus mengarahkan customer menuju Goal Utama yang sudah ditetapkan.
-      5. To the Point: Jangan bertele-tele. Jawab apa yang ditanyakan tapi tetap ramah.
+      1. ANALISIS PROFIL: Lihat data 'TARGET CUSTOMER INFO' di atas. Pahami apa bisnis mereka.
+      2. HUBUNGKAN TITIK (CONNECT THE DOTS): Bandingkan kebutuhan bisnis mereka dengan 'PERPUSTAKAAN PENGETAHUAN' yang diberikan Trainer. Mengapa produk kita penting bagi mereka?
+      3. RESPON CERDAS: Jangan hanya menyapa. Berikan alasan atau poin menarik yang relevan dengan bisnis mereka berdasarkan instruksi Trainer.
+      4. PRIORITAS TRAINER: Instruksi di atas adalah hukum tertinggi. Gunakan nalar Anda untuk menerjemahkan instruksi tersebut ke dalam percakapan yang sangat natural.
+      5. SOUL & HUMANLY: Gunakan Bahasa Indonesia yang sangat natural, santai (sesuai gaya Indonesia), dan tidak seperti template robot.
+      6. TO THE POINT: Jangan bertele-tele. Jawab apa yang ditanyakan tapi tetap ramah dan persuasif.
     `;
 
     const genAI = new GoogleGenerativeAI(finalKey);

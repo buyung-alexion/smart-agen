@@ -76,7 +76,7 @@ export const AIPlayground: React.FC<AIPlaygroundProps> = ({ persona, onPersonaUp
         setIsSaving(false);
       } else {
         // Regular real AI response
-        const aiDraft = await generateAIDraft(persona, updatedMessages, geminiKey);
+        const aiDraft = await generateAIDraft(persona, updatedMessages, geminiKey, undefined);
         const aiResponse: ChatMessage = { lead_id: 'sandbox', sender_type: 'ai', content: aiDraft };
         const finalMessages = [...updatedMessages, aiResponse];
         setMessages(finalMessages);

@@ -96,7 +96,7 @@ export const SmartActionHub: React.FC<SmartActionHubProps> = ({ prospects, custo
         const lead = targets[i];
         
         // Generate personalized opener based on persona
-        const draftContent = await generateAIDraft(persona, [], geminiKey);
+        const draftContent = await generateAIDraft(persona, [], geminiKey, lead);
         
         await sendMessage({
           lead_id: lead.id,
@@ -178,7 +178,7 @@ export const SmartActionHub: React.FC<SmartActionHubProps> = ({ prospects, custo
         }
       }
 
-      const draftContent = await generateAIDraft(persona, currentHistory, geminiKey);
+      const draftContent = await generateAIDraft(persona, currentHistory, geminiKey, activeLead);
       await sendMessage({
         lead_id: leadId,
         sender_type: 'ai',
