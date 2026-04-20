@@ -557,11 +557,11 @@ export const SmartActionHub: React.FC<SmartActionHubProps> = ({ prospects, custo
           </div>
 
           {/* Chat Panel */}
-          <div className="ui-card" style={{ padding: '0', display: 'flex', flexDirection: 'column', overflow: 'hidden', background: '#F8F9FB' }}>
+          <div className="ui-card" style={{ padding: '0', display: 'flex', flexDirection: 'column', overflow: 'hidden', background: '#F8F9FB', height: '100%', minHeight: '600px' }}>
             {activeChatId ? (
-              <>
+              <div key={activeChatId} style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
                 {/* 2. Elite Chat Header */}
-                <div style={{ padding: '1.5rem', background: 'white', borderBottom: '1px solid rgba(0,0,0,0.05)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div style={{ padding: '1.2rem 1.5rem', background: 'white', borderBottom: '1px solid rgba(0,0,0,0.05)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexShrink: 0 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
                     <div style={{ width: 45, height: 45, borderRadius: '14px', background: 'rgba(74, 108, 247, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--accent-blue)', boxShadow: '0 4px 12px rgba(74, 108, 247, 0.05)' }}>
                        <User size={24} />
@@ -706,7 +706,7 @@ export const SmartActionHub: React.FC<SmartActionHubProps> = ({ prospects, custo
                       </button>
                     </form>
                  </div>
-              </>
+              </div>
             ) : (
               <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)' }}>
                  <p>Pilih prospek di samping untuk memulai obrolan.</p>

@@ -53,12 +53,15 @@ export const generateAIDraft = async (
     `;
 
     // Gemini requirement: First message in history must be 'user'
-    // We find the index of the first human message
-    const firstHumanIndex = history.findIndex(msg => msg.sender_type === 'human');
-    const validHistory = firstHumanIndex !== -1 ? history.slice(firstHumanIndex) : [];
+    // Map 'prospect' and 'human' to 'user', and 'ai' to 'model'
+    const validHistory = history.filter(msg => msg.sender_type === 'prospect' || msg.sender_type === 'human' || msg.sender_type === 'ai');
+    
+    // Find the first user message (from prospect or human)
+    const firstUserIndex = validHistory.findIndex(msg => msg.sender_type === 'prospect' || msg.sender_type === 'human');
+    const cleanedHistory = firstUserIndex !== -1 ? validHistory.slice(firstUserIndex) : [];
 
-    const chatHistory = validHistory.map(msg => ({
-      role: msg.sender_type === 'human' ? 'user' : 'model',
+    const chatHistory = cleanedHistory.map(msg => ({
+      role: (msg.sender_type === 'prospect' || msg.sender_type === 'human') ? 'user' : 'model',
       parts: [{ text: msg.content }]
     }));
 
