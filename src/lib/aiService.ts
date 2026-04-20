@@ -11,8 +11,7 @@ export const generateAIDraft = async (
   history: ChatMessage[], 
   apiKey?: string
 ): Promise<string> => {
-  const fallbackGeminiKey = 'AIzaSyCo_CJIOcLWn48oLSZKhnoReHxacDnA1J8';
-  const finalKey = apiKey || import.meta.env.VITE_GEMINI_API_KEY || fallbackGeminiKey;
+  const finalKey = apiKey || import.meta.env.VITE_GEMINI_API_KEY;
 
   if (!finalKey) {
     console.warn("Gemini API Key missing.");
