@@ -26,43 +26,46 @@ export const generateAIDraft = async (
       .join('\n');
 
     const systemPrompt = `
-      You are an AI Sales Agent named "${persona.name}".
-      You were trained by your MANAGER (the user) who is your TRAINER.
+      NAMA AGEN: ${persona.name}
+      PERAN: AI Sales & Relationship Agent
+      TRAINER/OWNER: User (Pemilik Bisnis)
+
+      KONTEKS UTAMA:
+      Anda adalah ${persona.name}, agen AI yang diciptakan dan dilatih oleh pemilik bisnis ini untuk menangani Customer dan Prospect dengan cerdas.
       
-      CRITICAL DIRECTIVE: You MUST follow the instructions below as your HIGHEST PRIORITY. 
-      These are the direct orders from your Trainer for how to handle Customers and Prospects.
+      GOAL UTAMA: ${persona.goal}
+      GAYA BAHASA: ${persona.tone}
       
-      YOUR GOAL: ${persona.goal}.
-      YOUR TONE: ${persona.tone}.
-      
-      SPECIFIC INSTRUCTIONS & MEMORY BANK FROM TRAINER:
+      INSTRUKSI KHUSUS DARI TRAINER (WAJIB DIIKUTI):
       ${persona.instructions}
+      
+      ATURAN TAMBAHAN:
       ${rulesContext}
       
-      AVAILABLE KNOWLEDGE LIBRARY (Use ONLY if relevant):
+      PERPUSTAKAAN PENGETAHUAN (Gunakan jika relevan):
       ${knowledgeContext}
-      Legacy Info: ${persona.knowledge_base}
+      ${persona.knowledge_base}
 
-      CORE COMPLIANCE RULES:
-      1. Trainer Superiority: Always follow the Specific Instructions above. If there is a conflict, the Trainer's instructions win.
-      2. Human-like Soul: Speak naturally in Indonesian (Bahasa Indonesia). Do not sound like a machine.
-      3. Precise Interaction: Understand the goal set by your Trainer and work towards it in every message.
-      4. No Information Dump: Be concise. Give information only when asked.
+      PRINSIP BERPIKIR (REASONING):
+      1. Prioritas Trainer: Instruksi di atas adalah hukum tertinggi. Gunakan nalar Anda untuk menerjemahkan instruksi tersebut ke dalam percakapan yang natural.
+      2. Analisis Dulu: Sebelum menjawab, pahami maksud terdalam dari pesan customer.
+      3. Soul & Humanly: Gunakan Bahasa Indonesia yang sangat natural, santai (sesuai gaya Indonesia), dan tidak seperti template robot.
+      4. Fokus pada Goal: Setiap pesan harus mengarahkan customer menuju Goal Utama yang sudah ditetapkan.
+      5. To the Point: Jangan bertele-tele. Jawab apa yang ditanyakan tapi tetap ramah.
     `;
 
     const genAI = new GoogleGenerativeAI(finalKey);
+    // Upgrade to 1.5 Pro for better reasoning if possible, fallback to flash
     const model = genAI.getGenerativeModel({ 
-      model: "gemini-1.5-flash-latest",
+      model: "gemini-1.5-pro-latest", // Use Pro for better "reasoning"
       systemInstruction: systemPrompt,
     });
 
     const lastMsg = history.length > 0 ? history[history.length - 1].content : '';
 
     // Gemini requirement: First message in history must be 'user'
-    // Map 'prospect', 'human', and 'user' to 'user' role for Gemini, and 'ai' to 'model'
     const validHistory = history.filter(msg => ['prospect', 'human', 'user', 'ai'].includes(msg.sender_type));
     
-    // Find the first user message
     const firstUserIndex = validHistory.findIndex(msg => ['prospect', 'human', 'user'].includes(msg.sender_type));
     const cleanedHistory = firstUserIndex !== -1 ? validHistory.slice(firstUserIndex) : [];
 
@@ -73,10 +76,12 @@ export const generateAIDraft = async (
 
     // Start Chat
     const chat = model.startChat({
-      history: chatHistory.slice(0, -1), // Everything except the last message
+      history: chatHistory.slice(0, -1),
       generationConfig: {
-        maxOutputTokens: 800,
-        temperature: 0.8,
+        maxOutputTokens: 1000,
+        temperature: 0.7, // Slightly lower for more focused reasoning
+        topP: 0.95,
+        topK: 40,
       },
     });
 
