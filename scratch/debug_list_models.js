@@ -1,4 +1,4 @@
-const apiKey = "AIzaSyCo_CJIOcLWn48oLSZKhnoReHxacDnA1J8";
+const apiKey = "AIzaSyB9Qu3_euukAfiWlL4GZiiwYOKBUTp7JNw";
 const url = `https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`;
 
 async function listModels() {
@@ -6,10 +6,12 @@ async function listModels() {
     const response = await fetch(url);
     const data = await response.json();
     if (data.models) {
-        console.log("AVAILABLE MODELS:");
-        data.models.forEach(m => console.log(`- ${m.name}`));
+        console.log("SUCCESS: MODELS FOUND");
+        console.log(`Model Count: ${data.models.length}`);
+        // Log first few to verify
+        data.models.slice(0, 3).forEach(m => console.log(`- ${m.name}`));
     } else {
-        console.log("NO MODELS FOUND OR ERROR:");
+        console.log("FAILED: NO MODELS OR ERROR");
         console.log(JSON.stringify(data, null, 2));
     }
   } catch (err) {
