@@ -1,9 +1,9 @@
 import type { Lead } from '../types';
 
-const SERPER_API_KEY = import.meta.env.VITE_SERPER_API_KEY;
+export const searchLeads = async (category: string, location: string, depth: string, apiKey?: string): Promise<Lead[]> => {
+  const finalKey = apiKey || import.meta.env.VITE_SERPER_API_KEY;
 
-export const searchLeads = async (category: string, location: string, depth: string): Promise<Lead[]> => {
-  if (!SERPER_API_KEY) {
+  if (!finalKey) {
     console.error('Serper API Key missing');
     return [];
   }
@@ -17,7 +17,7 @@ export const searchLeads = async (category: string, location: string, depth: str
     const response = await fetch('https://google.serper.dev/places', {
       method: 'POST',
       headers: {
-        'X-API-KEY': SERPER_API_KEY,
+        'X-API-KEY': finalKey,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({

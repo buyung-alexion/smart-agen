@@ -149,7 +149,19 @@ function App() {
   // 2. Real Search Implementation
   const handleSearch = async (category: string, location: string, depth: string) => {
     setIsLoading(true);
-    const results = await searchLeads(category, location, depth);
+    
+    // Get Serper API Key from localStorage (SettingsHub)
+    const savedConfig = localStorage.getItem('smart_agent_config');
+    let serperKey = '';
+    if (savedConfig) {
+      try {
+        serperKey = JSON.parse(savedConfig).serperKey;
+      } catch (e) {
+        console.error('Error parsing config for Search:', e);
+      }
+    }
+
+    const results = await searchLeads(category, location, depth, serperKey);
     setScrapedLeads(results);
     setIsLoading(false);
   };
