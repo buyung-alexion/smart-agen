@@ -21,7 +21,7 @@ export const generateAIDraft = async (
 
   try {
     const genAI = new GoogleGenerativeAI(finalKey);
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash-latest" });
 
     const lastMsg = history.length > 0 ? history[history.length - 1].content : '';
     
