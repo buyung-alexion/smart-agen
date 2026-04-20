@@ -19,11 +19,6 @@ export const generateAIDraft = async (
   }
 
   try {
-    const genAI = new GoogleGenerativeAI(finalKey);
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash-latest" });
-
-    const lastMsg = history.length > 0 ? history[history.length - 1].content : '';
-    
     // Construct sophisticated context
     const rulesContext = (persona.rules || []).join('\n');
     const knowledgeContext = (persona.knowledge_items || [])
@@ -55,6 +50,14 @@ export const generateAIDraft = async (
       4. No Information Dump: Be concise. Give information only when asked.
     `;
 
+    const genAI = new GoogleGenerativeAI(finalKey);
+    const model = genAI.getGenerativeModel({ 
+      model: "gemini-1.5-flash-latest",
+      systemInstruction: systemPrompt,
+    });
+
+    const lastMsg = history.length > 0 ? history[history.length - 1].content : '';
+
     // Gemini requirement: First message in history must be 'user'
     // Map 'prospect', 'human', and 'user' to 'user' role for Gemini, and 'ai' to 'model'
     const validHistory = history.filter(msg => ['prospect', 'human', 'user', 'ai'].includes(msg.sender_type));
@@ -72,8 +75,8 @@ export const generateAIDraft = async (
     const chat = model.startChat({
       history: chatHistory.slice(0, -1), // Everything except the last message
       generationConfig: {
-        maxOutputTokens: 500,
-        temperature: 0.7,
+        maxOutputTokens: 800,
+        temperature: 0.8,
       },
     });
 
