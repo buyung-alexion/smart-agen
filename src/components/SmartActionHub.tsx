@@ -431,6 +431,8 @@ export const SmartActionHub: React.FC<SmartActionHubProps> = ({ prospects, activ
 
       {/* 3. Live AI Inbox */}
       {activeSubTab === 'inbox' && (
+        <div style={{ display: 'grid', gridTemplateColumns: 'minmax(250px, 1fr) 2fr', gap: '1.5rem', height: '600px' }}>
+          
           {/* 1. Global Interaction Sidebar (Boss Mode) */}
           <div className="ui-card" style={{ padding: '0', display: 'flex', flexDirection: 'column', overflow: 'hidden', background: '#F9FAFC', borderRight: '1px solid rgba(0,0,0,0.05)' }}>
             <div style={{ padding: '1.2rem', borderBottom: '1px solid rgba(0,0,0,0.05)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
