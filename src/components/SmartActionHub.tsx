@@ -79,11 +79,21 @@ export const SmartActionHub: React.FC<SmartActionHubProps> = ({ prospects, custo
       });
 
       // 2. Real Generation of Drafts
+      const savedConfig = localStorage.getItem('smart_agent_config');
+      let geminiKey = '';
+      if (savedConfig) {
+        try {
+          geminiKey = JSON.parse(savedConfig).geminiKey;
+        } catch (e) {
+          console.error('Error parsing config for Campaign:', e);
+        }
+      }
+
       for (let i = 0; i < targets.length; i++) {
         const lead = targets[i];
         
         // Generate personalized opener based on persona
-        const draftContent = await generateAIDraft(persona, [], `[System: Generate opening message for ${lead.company_name} from category ${lead.category}]`);
+        const draftContent = await generateAIDraft(persona, [], geminiKey);
         
         await sendMessage({
           lead_id: lead.id,
@@ -150,7 +160,18 @@ export const SmartActionHub: React.FC<SmartActionHubProps> = ({ prospects, custo
     setIsThinking(true);
     
     try {
-      const draftContent = await generateAIDraft(persona, currentHistory);
+      // Get API Key from localStorage (SettingsHub)
+      const savedConfig = localStorage.getItem('smart_agent_config');
+      let geminiKey = '';
+      if (savedConfig) {
+        try {
+          geminiKey = JSON.parse(savedConfig).geminiKey;
+        } catch (e) {
+          console.error('Error parsing config for Smart Action Hub:', e);
+        }
+      }
+
+      const draftContent = await generateAIDraft(persona, currentHistory, geminiKey);
       await sendMessage({
         lead_id: leadId,
         sender_type: 'ai',

@@ -1,108 +1,92 @@
+import { GoogleGenerativeAI } from "@google/generative-ai";
 import type { Persona } from './personaService';
 import type { ChatMessage } from '../types';
 
 /**
- * AI Service using a logic-based reasoning engine to generate draft responses.
- * This simulates the Gemini outcome based on Persona guidelines.
+ * AI Service using Google Gemini to generate human-like responses.
+ * It uses Retrieval-Augmented Generation (RAG) to inject persona, rules, and knowledge.
  */
 export const generateAIDraft = async (
   persona: Persona, 
   history: ChatMessage[], 
-  incomingMessage?: string
+  apiKey?: string
 ): Promise<string> => {
-  // Simulate network delay for "AI Thinking" feel
-  await new Promise(resolve => setTimeout(resolve, 3000));
+  const finalKey = apiKey || import.meta.env.VITE_GEMINI_API_KEY;
 
-  const { tone, goal, instructions, knowledge_base } = persona;
-  
-  // Logic to determine context
-  const hasHistory = history.length > 0;
-  const lastMsg = incomingMessage || (hasHistory ? history[history.length - 1].content : '');
-
-  // 1. Basic Response Structure based on Tone
-  let response = "";
-  
-  if (tone.includes('Sopan')) {
-    response = "Halo, bapak/ibu. ";
-  } else if (tone.includes('Santai')) {
-    response = "Halo kak, ";
-  } else if (tone.includes('Hard Selling')) {
-    response = "Peluang besar buat bisnis Anda! ";
+  if (!finalKey) {
+    console.warn("Gemini API Key missing. Falling back to simulation mode.");
+    return fallbackSimulation(persona, history);
   }
 
-  // 2. Incorporate Rules Bank (The "Memory" Logic)
-  const allRules = [...(persona.rules || []), persona.instructions].filter(Boolean);
-  let instructionsApplied = false;
+  try {
+    const genAI = new GoogleGenerativeAI(finalKey);
+    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
 
-  // Adaptive detection: Which rule fits this customer?
-  for (const rule of allRules) {
-    if (!rule) continue;
-    const lowerRule = rule.toString().toLowerCase();
+    const lastMsg = history.length > 0 ? history[history.length - 1].content : '';
     
-    // Check if customer message matches context for this rule
-    const isFormalContext = lastMsg.toLowerCase().match(/selamat siang|halo bapak|mohon info|bisnis/i);
-    const isCasualContext = lastMsg.toLowerCase().match(/halo kak|p|halo sis|oi|bro/i);
+    // Construct sophisticated context
+    const rulesContext = (persona.rules || []).join('\n');
+    const knowledgeContext = (persona.knowledge_items || [])
+      .map(item => `[${item.category}] ${item.title}: ${item.content}`)
+      .join('\n');
 
-    if (lowerRule.includes('formal') && isFormalContext) {
-      response = "Selamat siang. Mohon maaf mengganggu waktunya. " + response;
-      instructionsApplied = true;
-    } 
-    else if (lowerRule.includes('santai') && isCasualContext) {
-      response = "Halo kak! Apa kabar? " + response;
-      instructionsApplied = true;
-    }
+    const systemPrompt = `
+      You are an AI Sales Agent named "${persona.name}".
+      Your goal is: ${persona.goal}.
+      Your speaking tone must be: ${persona.tone}.
+      
+      SPECIFIC INSTRUCTIONS & MEMORY BANK:
+      ${persona.instructions}
+      ${rulesContext}
+      
+      AVAILABLE KNOWLEDGE LIBRARY (Use ONLY if relevant to the user's message):
+      ${knowledgeContext}
+      Legacy Info: ${persona.knowledge_base}
 
-    if (lowerRule.includes('diskon')) {
-      response += "Kami ada penawaran diskon khusus lho. ";
-      instructionsApplied = true;
-    }
-    
-    if (lowerRule.includes('jawa')) {
-      response += "Monggo pinarak, ";
-      instructionsApplied = true;
-    }
-  }
+      CORE DIRECTIVES:
+      1. Human-like Soul: Do not sound like a robot or a help desk. 
+      2. Contextual understanding: If the user is chatty, be chatty. If they are serious, be professional.
+      3. No Information Dump: If the user asks about price, give the price and ask a follow-up question. Don't dump the whole manual.
+      4. Intent Recognition: Understand who is speaking to you and adjust accordingly.
+      5. Speak naturally in Indonesian (Bahasa Indonesia).
+    `;
 
-  // 3. Fallback to Goal if no specific instruction matched
-  if (!instructionsApplied && goal) {
-    response += `Terkait hal tersebut, target kami adalah ${goal.toLowerCase().replace('membujuk', 'membantu')}. `;
-  }
+    const chatHistory = history.map(msg => ({
+      role: msg.sender_type === 'human' ? 'user' : 'model',
+      parts: [{ text: msg.content }]
+    }));
 
-  // 4. Knowledge Retrieval (Structured Library)
-  if (persona.knowledge_items && persona.knowledge_items.length > 0) {
-    const matchedItems = persona.knowledge_items.filter(item => {
-      const keywords = lastMsg.toLowerCase().split(' ');
-      return keywords.some(word => 
-        word.length > 3 && (
-          item.title.toLowerCase().includes(word) || 
-          item.content.toLowerCase().includes(word)
-        )
-      );
+    // Start Chat
+    const chat = model.startChat({
+      history: chatHistory.slice(0, -1), // Everything except the last message
+      generationConfig: {
+        maxOutputTokens: 500,
+        temperature: 0.7,
+      },
     });
 
-    if (matchedItems.length > 0) {
-      // Prioritize Products then Events
-      const bestMatch = matchedItems.find(i => i.category === 'Product') || matchedItems[0];
-      response += `\nInformasi Terkait ${bestMatch.title}: ${bestMatch.content}. `;
-      instructionsApplied = true;
-    }
-  }
+    const result = await chat.sendMessage(lastMsg);
+    const response = await result.response;
+    return response.text();
 
-  // 5. Knowledge Base Context (Legacy Fallback)
-  if (!instructionsApplied && knowledge_base) {
-    const kbLines = knowledge_base.split('\n');
-    const matchedLine = kbLines.find(line => lastMsg.toLowerCase().split(' ').some(word => line.toLowerCase().includes(word)));
-    if (matchedLine) {
-      response += `Berdasarkan info kami: ${matchedLine.trim()}. `;
-    }
+  } catch (err) {
+    console.error("Gemini AI Error:", err);
+    return fallbackSimulation(persona, history);
   }
+};
 
-  // 5. Final Polish
-  if (history.length === 0 && !incomingMessage) {
-    response = `Halo! Saya ${persona.name}. ${response} Apakah ada yang bisa kami bantu?`;
-  } else {
-    response += "Bagaimana menurut Anda?";
-  }
-
-  return response;
+/**
+ * Fallback logic if AI fails or Key is missing
+ */
+const fallbackSimulation = (persona: Persona, history: ChatMessage[]): string => {
+  const { tone, goal } = persona;
+  const lastMsg = history.length > 0 ? history[history.length - 1].content : '';
+  
+  let response = "";
+  if (tone.includes('Sopan')) response = "Halo, bapak/ibu. ";
+  else if (tone.includes('Santai')) response = "Halo kak, ";
+  
+  if (goal) response += `Terkait hal tersebut, target kami adalah ${goal.toLowerCase()}. `;
+  
+  return response + "Bagaimana menurut Anda? (Note: AI Simulation Mode active)";
 };

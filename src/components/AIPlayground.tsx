@@ -29,6 +29,17 @@ export const AIPlayground: React.FC<AIPlaygroundProps> = ({ persona, onPersonaUp
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!input.trim() || isThinking) return;
+    
+    // Get API Key from localStorage (SettingsHub)
+    const savedConfig = localStorage.getItem('smart_agent_config');
+    let geminiKey = '';
+    if (savedConfig) {
+      try {
+        geminiKey = JSON.parse(savedConfig).geminiKey;
+      } catch (e) {
+        console.error('Error parsing config for AI Playground:', e);
+      }
+    }
 
     const userMsg: ChatMessage = { lead_id: 'sandbox', sender_type: 'human', content: input };
     const updatedMessages = [...messages, userMsg];
@@ -64,8 +75,8 @@ export const AIPlayground: React.FC<AIPlaygroundProps> = ({ persona, onPersonaUp
         await savePersona({ ...updatedPersona, history: finalMessages });
         setIsSaving(false);
       } else {
-        // Regular simulation response
-        const aiDraft = await generateAIDraft(persona, updatedMessages, input);
+        // Regular real AI response
+        const aiDraft = await generateAIDraft(persona, updatedMessages, geminiKey);
         const aiResponse: ChatMessage = { lead_id: 'sandbox', sender_type: 'ai', content: aiDraft };
         const finalMessages = [...updatedMessages, aiResponse];
         setMessages(finalMessages);
