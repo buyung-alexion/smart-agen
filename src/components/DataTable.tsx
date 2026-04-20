@@ -1,17 +1,19 @@
 import React from 'react';
-import { ExternalLink, Star, CheckSquare, MapPin, Phone } from 'lucide-react';
+import { ExternalLink, Star, CheckSquare, MapPin, Phone, Edit2, Trash2 } from 'lucide-react';
 import type { Lead } from '../types';
 
 interface DataTableProps {
   leads: Lead[];
-  onApprove?: (lead: any) => void;
+  onApprove?: (lead: Lead) => void;
+  onEdit?: (lead: Lead) => void;
+  onDelete?: (id: string) => void;
   emptyMessage?: string;
   approveLabel?: string;
   hideApprove?: boolean;
 }
 
 export const DataTable: React.FC<DataTableProps> = ({ 
-  leads, onApprove, emptyMessage = "Tidak ada data.", 
+  leads, onApprove, onEdit, onDelete, emptyMessage = "Tidak ada data.", 
   approveLabel = "Approve", 
   hideApprove = false 
 }) => {
@@ -107,6 +109,26 @@ export const DataTable: React.FC<DataTableProps> = ({
                       >
                         <CheckSquare size={16} style={{ marginRight: '6px' }} /> {approveLabel}
                       </button>
+                    )}
+                    {onEdit && (
+                       <button 
+                         className="pill-tag" 
+                         style={{ padding: '0.5rem', background: '#F0F9FF' }}
+                         onClick={() => onEdit(lead)}
+                         title="Edit Data"
+                       >
+                         <Edit2 size={16} color="#0EA5E9" />
+                       </button>
+                    )}
+                    {onDelete && (
+                       <button 
+                         className="pill-tag" 
+                         style={{ padding: '0.5rem', background: '#FFF1F2' }}
+                         onClick={() => onDelete(lead.id)}
+                         title="Hapus Data"
+                       >
+                         <Trash2 size={16} color="#F43F5E" />
+                       </button>
                     )}
                   </div>
                 </td>

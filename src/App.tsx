@@ -56,6 +56,16 @@ function App() {
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   
+  // Edit State
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [editingLead, setEditingLead] = useState<Lead | null>(null);
+  const [editFormData, setEditFormData] = useState({
+    company_name: '',
+    category: '',
+    phone_number: '',
+    address: ''
+  });
+
   // Branding State
   const [branding, setBranding] = useState({
     name: 'Smart Agent',
@@ -244,6 +254,66 @@ function App() {
     }
   };
 
+  const handleUpdateProspect = async () => {
+    if (!editingLead) return;
+    setIsSaving(true);
+    try {
+      const { error } = await db
+        .from('prospeks')
+        .update({
+          company_name: editFormData.company_name,
+          category: editFormData.category,
+          phone_number: editFormData.phone_number,
+          address: editFormData.address
+        })
+        .eq('id', editingLead.id);
+
+      if (error) throw error;
+      
+      fetchProspects();
+      setIsEditModalOpen(false);
+      setEditingLead(null);
+      alert('Data Prospek berhasil diperbarui.');
+    } catch (err) {
+      console.error(err);
+      alert('Gagal memperbarui data.');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleDeleteProspect = async (id: string) => {
+    if (!confirm('Apakah Anda yakin ingin menghapus prospek ini?')) return;
+    
+    setIsSaving(true);
+    try {
+      const { error } = await db
+        .from('prospeks')
+        .delete()
+        .eq('id', id);
+
+      if (error) throw error;
+      
+      fetchProspects();
+    } catch (err) {
+      console.error(err);
+      alert('Gagal menghapus data.');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const openEditModal = (lead: Lead) => {
+    setEditingLead(lead);
+    setEditFormData({
+      company_name: lead.company_name,
+      category: lead.category,
+      phone_number: (lead as any).phone_number || '',
+      address: lead.address || ''
+    });
+    setIsEditModalOpen(true);
+  };
+
   const handleManualSave = async () => {
     if (!manualLead.company_name) {
       alert('Nama Bisnis wajib diisi.');
@@ -272,17 +342,12 @@ function App() {
         .insert([payload]);
 
       if (error) throw error;
-
-      fetchProspects();
-      fetchCustomers();
+      
+      if (manualAddTarget === 'customer') fetchCustomers();
+      else fetchProspects();
+      
       setIsManualAddOpen(false);
-      setManualLead({
-        company_name: '',
-        category: '',
-        address: '',
-        phone_number: '',
-        map_location: ''
-      });
+      setManualLead({ company_name: '', category: '', address: '', phone_number: '', map_location: '' });
       alert(`${manualAddTarget.charAt(0).toUpperCase() + manualAddTarget.slice(1)} manual berhasil disimpan!`);
     } catch (err) {
       console.error(err);
@@ -760,6 +825,70 @@ function App() {
                  disabled={isSaving}
                >
                  {isSaving ? 'Saving...' : 'Simpan Prospek'}
+               </button>
+            </div>
+      {/* 2. Edit Modal */}
+      {isEditModalOpen && (
+        <div className="modal-overlay">
+          <div className="modal-content" style={{ maxWidth: '500px' }}>
+            <div className="modal-header">
+              <h2 style={{ fontSize: '1.5rem', fontWeight: 800, color: 'var(--text-main)' }}>Edit Data Prospek</h2>
+              <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>Perbarui informasi detail prospek bisnis Anda.</p>
+            </div>
+
+            <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '1.2rem', marginTop: '1.5rem' }}>
+              <div className="search-box" style={{ padding: 0 }}>
+                <label style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '4px', display: 'block', fontWeight: 600 }}>NAMA BISNIS / PERUSAHAAN</label>
+                <input 
+                  className="input-styled" 
+                  value={editFormData.company_name}
+                  onChange={e => setEditFormData({...editFormData, company_name: e.target.value})}
+                />
+              </div>
+
+              <div className="search-box" style={{ padding: 0 }}>
+                <label style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '4px', display: 'block', fontWeight: 600 }}>KATEGORI BISNIS</label>
+                <input 
+                  className="input-styled" 
+                  value={editFormData.category}
+                  onChange={e => setEditFormData({...editFormData, category: e.target.value})}
+                />
+              </div>
+
+              <div className="search-box" style={{ padding: 0 }}>
+                <label style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '4px', display: 'block', fontWeight: 600 }}>NOMOR WHATSAPP</label>
+                <input 
+                  className="input-styled" 
+                  value={editFormData.phone_number}
+                  onChange={e => setEditFormData({...editFormData, phone_number: e.target.value})}
+                />
+              </div>
+
+              <div className="search-box" style={{ padding: 0 }}>
+                <label style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '4px', display: 'block', fontWeight: 600 }}>ALAMAT LENGKAP</label>
+                <input 
+                  className="input-styled" 
+                  value={editFormData.address}
+                  onChange={e => setEditFormData({...editFormData, address: e.target.value})}
+                />
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', gap: '1rem', marginTop: '2rem' }}>
+               <button 
+                 className="hero-btn" 
+                 style={{ flex: 1, background: '#eee', color: '#666' }}
+                 onClick={() => setIsEditModalOpen(false)}
+               >
+                 Batal
+               </button>
+               <button 
+                 className="hero-btn cyan" 
+                 style={{ flex: 2 }}
+                 onClick={handleUpdateProspect}
+                 disabled={isSaving}
+               >
+                 {isSaving ? 'Menyimpan...' : 'Simpan Perubahan'}
                </button>
             </div>
           </div>
