@@ -813,22 +813,26 @@ function App() {
             </div>
 
             <div style={{ display: 'flex', gap: '1rem', marginTop: '2rem' }}>
-               <button 
-                 className="hero-btn" 
-                 style={{ flex: 1, background: '#eee', color: '#666' }}
-                 onClick={() => setIsManualAddOpen(false)}
-               >
-                 Cancel
-               </button>
-               <button 
-                 className="hero-btn pink" 
-                 style={{ flex: 2 }}
-                 onClick={handleManualSave}
-                 disabled={isSaving}
-               >
-                 {isSaving ? 'Saving...' : 'Simpan Prospek'}
-               </button>
+              <button 
+                className="hero-btn" 
+                style={{ flex: 1, background: '#eee', color: '#666' }}
+                onClick={() => setIsManualAddOpen(false)}
+              >
+                Cancel
+              </button>
+              <button 
+                className="hero-btn pink" 
+                style={{ flex: 2 }}
+                onClick={handleManualSave}
+                disabled={isSaving}
+              >
+                {isSaving ? 'Saving...' : 'Simpan Prospek'}
+              </button>
             </div>
+          </div>
+        </div>
+      )}
+
       {/* 2. Edit Modal */}
       {isEditModalOpen && (
         <div className="modal-overlay">
