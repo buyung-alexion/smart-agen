@@ -70,9 +70,9 @@ export const SearchPanel: React.FC<SearchPanelProps> = ({ onSearch, isLoading })
             borderRadius: '20px' 
           }}>
             {[
-              { id: 'quick', label: 'Quick Scan', desc: 'Fast & Basic' },
-              { id: 'deep', label: 'Deep Scan', desc: 'Better Accuracy' },
-              { id: 'ultra', label: 'Ultra Depth', desc: 'Comprehensive' }
+              { id: 'quick', label: '20 Leads', desc: 'Quick Scan' },
+              { id: 'deep', label: '50 Leads', desc: 'Deep Scan' },
+              { id: 'ultra', label: '100 Leads', desc: 'Maximum' }
             ].map((opt) => (
               <div 
                 key={opt.id}
@@ -88,8 +88,8 @@ export const SearchPanel: React.FC<SearchPanelProps> = ({ onSearch, isLoading })
                   transition: '0.3s ease'
                 }}
               >
-                <div style={{ fontWeight: 700, fontSize: '0.9rem', color: intensity === opt.id ? 'var(--sidebar-gradient)' : 'var(--text-muted)' }}>{opt.label}</div>
-                <div style={{ fontSize: '0.7rem', opacity: 0.6 }}>{opt.desc}</div>
+                <div style={{ fontWeight: 700, fontSize: '0.9rem', color: intensity === opt.id ? 'var(--sidebar-gradient)' : 'var(--text-main)' }}>{opt.label}</div>
+                <div style={{ fontSize: '0.7rem', opacity: 0.6, color: 'var(--text-muted)' }}>{opt.desc}</div>
               </div>
             ))}
           </div>
