@@ -35,6 +35,8 @@ export const SmartActionHub: React.FC<SmartActionHubProps> = ({ prospects, custo
   const [isSaving, setIsSaving] = useState(false);
   const [isThinking, setIsThinking] = useState(false);
 
+  const activeLead = ([...prospects, ...customers]).find(p => p.id === activeChatId);
+
   // Campaign State
   const [campaignCategory, setCampaignCategory] = useState('All');
   const [openingMsg, setOpeningMsg] = useState('Halo {{company_name}}! Kami punya penawaran menarik...');
