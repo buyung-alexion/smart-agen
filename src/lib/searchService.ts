@@ -13,6 +13,8 @@ export const searchLeads = async (category: string, location: string, depth: str
   if (depth === 'deep') numResults = 50;
   if (depth === 'ultra') numResults = 100;
 
+  console.log(`[SearchService] Fetching ${numResults} leads for ${category} in ${location}...`);
+
   try {
     const response = await fetch('https://google.serper.dev/places', {
       method: 'POST',
@@ -21,8 +23,11 @@ export const searchLeads = async (category: string, location: string, depth: str
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        q: `${category} in ${location}`,
-        num: numResults,
+        q: `${category}`,
+        location: location,
+        num: Number(numResults),
+        gl: 'id', // Indonesia
+        hl: 'id'  // Indonesian language
       }),
     });
     

@@ -14,7 +14,8 @@ export const SearchPanel: React.FC<SearchPanelProps> = ({ onSearch, isLoading })
 
   const handleSearch = () => {
     if (!selectedCategory || !locationText) return;
-    onSearch(selectedCategory, locationText, intensity);
+    const category = CATEGORIES.find(c => c.id === selectedCategory);
+    onSearch(category ? category.name : selectedCategory, locationText, intensity);
   };
 
   const isSearchDisabled = !selectedCategory || !locationText || isLoading;
