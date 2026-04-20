@@ -12,16 +12,19 @@ import { AIKnowledgeBase } from './AIKnowledgeBase';
 interface SmartActionHubProps {
   prospects: Lead[];
   customers: Lead[];
-  activeSubTab: 'persona' | 'campaign' | 'inbox' | 'playground';
-  setActiveSubTab: (tab: 'persona' | 'campaign' | 'inbox' | 'playground') => void;
+  activeSubTab: 'persona' | 'campaign' | 'inbox' | 'playground' | 'knowledge';
+  setActiveSubTab: (tab: 'persona' | 'campaign' | 'inbox' | 'playground' | 'knowledge') => void;
 }
 
-export const SmartActionHub: React.FC<SmartActionHubProps> = ({ prospects, activeSubTab, setActiveSubTab }) => {
+export const SmartActionHub: React.FC<SmartActionHubProps> = ({ prospects, customers = [], activeSubTab, setActiveSubTab }) => {
   const [persona, setPersona] = useState<Persona>({
     name: 'Sarah - Sales Representative',
     tone: 'Sopan & Profesional',
     goal: '',
     instructions: '',
+    rules: [],
+    history: [],
+    knowledge_items: [],
     knowledge_base: ''
   });
   

@@ -31,12 +31,13 @@ export const generateAIDraft = async (
   }
 
   // 2. Incorporate Rules Bank (The "Memory" Logic)
-  const allRules = [...(persona.rules || []), persona.instructions];
+  const allRules = [...(persona.rules || []), persona.instructions].filter(Boolean);
   let instructionsApplied = false;
 
   // Adaptive detection: Which rule fits this customer?
   for (const rule of allRules) {
-    const lowerRule = rule.toLowerCase();
+    if (!rule) continue;
+    const lowerRule = rule.toString().toLowerCase();
     
     // Check if customer message matches context for this rule
     const isFormalContext = lastMsg.toLowerCase().match(/selamat siang|halo bapak|mohon info|bisnis/i);
