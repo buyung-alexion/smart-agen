@@ -51,7 +51,12 @@ export const generateAIDraft = async (
       5. Speak naturally in Indonesian (Bahasa Indonesia).
     `;
 
-    const chatHistory = history.map(msg => ({
+    // Gemini requirement: First message in history must be 'user'
+    // We find the index of the first human message
+    const firstHumanIndex = history.findIndex(msg => msg.sender_type === 'human');
+    const validHistory = firstHumanIndex !== -1 ? history.slice(firstHumanIndex) : [];
+
+    const chatHistory = validHistory.map(msg => ({
       role: msg.sender_type === 'human' ? 'user' : 'model',
       parts: [{ text: msg.content }]
     }));
