@@ -96,12 +96,12 @@ export const SmartActionHub: React.FC<SmartActionHubProps> = ({ prospects, custo
         const lead = targets[i];
         
         // Generate personalized opener based on persona
-        const draftContent = await generateAIDraft(persona, [], geminiKey, lead);
+        const res = await generateAIDraft(persona, [], geminiKey, lead);
         
         await sendMessage({
           lead_id: lead.id,
           sender_type: 'ai',
-          content: draftContent,
+          content: res.content,
           is_draft: true
         });
 
@@ -178,13 +178,20 @@ export const SmartActionHub: React.FC<SmartActionHubProps> = ({ prospects, custo
         }
       }
 
-      const draftContent = await generateAIDraft(persona, currentHistory, geminiKey, activeLead);
-      await sendMessage({
-        lead_id: leadId,
-        sender_type: 'ai',
-        content: draftContent,
-        is_draft: true
-      });
+      try {
+        const res = await generateAIDraft(persona, currentHistory, geminiKey, activeLead);
+        await sendMessage({
+          lead_id: leadId,
+          sender_type: 'ai',
+          content: res.content,
+          is_draft: true
+        });
+        // We could also store res.reasoning if we want to show it in Inbox
+      } catch (err) {
+        console.error('Draft error:', err);
+      } finally {
+        setIsThinking(false);
+      }
     } catch (err) {
       console.error('Error auto-drafting:', err);
     } finally {

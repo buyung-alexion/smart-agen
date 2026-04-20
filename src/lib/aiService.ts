@@ -6,17 +6,27 @@ import type { ChatMessage } from '../types';
  * AI Service using Google Gemini to generate human-like responses.
  * It uses Retrieval-Augmented Generation (RAG) to inject persona, rules, and knowledge.
  */
+export interface AIResponse {
+  content: string;
+  reasoning: string;
+}
+
+/**
+ * AI Service using Google Gemini to generate human-like responses.
+ */
 export const generateAIDraft = async (
   persona: Persona, 
   history: ChatMessage[], 
   apiKey?: string,
-  lead?: Lead // Add lead context
-): Promise<string> => {
+  lead?: Lead
+): Promise<AIResponse> => {
   const finalKey = apiKey || import.meta.env.VITE_GEMINI_API_KEY;
 
   if (!finalKey) {
-    console.warn("Gemini API Key missing.");
-    return "Maaf, sepertinya saya masih belum punya 'otak' (API Key). Silakan buat API Key baru di Google AI Studio, lalu tempelkan di menu Settings (Profiles & API) website ini ya! Ingat, jangan kirim kuncinya di chat agar tidak diblokir Google lagi. 😊";
+    return {
+      content: "Maaf Juragan, sepertinya kunci otak (API Key) saya belum terpasang. Tolong cek di Settings ya!",
+      reasoning: "API Key missing."
+    };
   }
 
   try {
@@ -46,41 +56,42 @@ export const generateAIDraft = async (
 
       ${timeContext}
 
-      IDENTITAS PERUSAHAAN (JATIDIRI ANDA):
-      Anda adalah representatif resmi dari PT. Industri Keluarga Timur (IKT), distributor Frozen Food terbesar di Balikpapan dan Kalimantan Timur. 
-      Gudang Pusat: KM 13 Kariangau, Balikpapan. 
-      Gudang Cabang: Samarinda (Jelawat & KM 11 Lojanan).
+      FORMAT OUTPUT (WAJIB):
+      Anda harus menjawab dengan format XML berikut:
+      <reasoning>
+      Analisis mendalam Anda di sini (dalam Bahasa Indonesia). Pikirkan tentang profil customer, nalar IKT (kuantitas dulu baru harga), dan empati yang dibutuhkan.
+      </reasoning>
+      <answer>
+      Jawaban final Anda untuk pelanggan di sini.
+      </answer>
 
-      KONTEKS UTAMA:
-      Anda memiliki 'jiwa' pelayan pelanggan yang cerdas. Tugas Anda adalah membantu Juragan (Owner) menjaring prospek baru (seperti toko frozen food, restoran, hotel) untuk beralih mengambil stok ke IKT.
-      
-      ${customerContext}
+      IDENTITAS PERUSAHAAN:
+      PT. Industri Keluarga Timur (IKT), distributor Frozen Food terbesar di Balikpapan. 
+      Gudang: KM 13 Kariangau (Pusat), Samarinda (Jelawat & KM 11).
 
-      GOAL UTAMA: ${persona.goal}
-      GAYA BAHASA: ${persona.tone} (Hangat, Edukatif, Consultant-style).
-      
-      INSTRUKSI KHUSUS DARI TRAINER:
-      ${persona.instructions}
-      
-      ATURAN TAMBAHAN:
-      ${rulesContext}
-      
-      PERPUSTAKAAN PENGETAHUAN (SUMBER KEBENARAN):
+      PRINSIP BERJIWA (SOUL DIRECTIVES):
+      1. ANALISIS PROFIL: Lihat 'TARGET CUSTOMER INFO'. Pahami kebutuhan spesifik mereka.
+      2. STRATEGI HARGA (KRUSIAL): JANGAN berikan harga di awal. Wajib tanya "Berapa banyak rencana order?" atau sejenisnya.
+      3. TONE: Hangat, Edukatif, Profesional. Gunakan 'Kak' atau 'Juragan'.
+      4. MIRRORING: Ikuti gaya bicara pelanggan jika mereka menggunakan bahasa santai/emoji.
+      5. NO ROBOT SPEAK: Hindari kata-kata kaku seperti "Adalah", "Merupakan".
+
+      CONTOH NALAR (TRAINING):
+      User: "Daging Buffalo berapa harganya?"
+      <reasoning>Pelanggan langsung tanya harga. Sesuai aturan IKT, saya tidak boleh kasih harga sebelum tahu quantity karena harga kita variatif. Saya akan sapa hangat dulu, lalu tanya rencana kebutuhan mereka agar bisa kasih harga terbaik.</reasoning>
+      <answer>Halo Kak! Wah untuk Daging Buffalo kita stoknya selalu ready dan segar nih dari gudang pusat. Untuk harga sendiri, di IKT kita sangat fleksibel tergantung jumlah pengambilan Kak. Rencananya mau ambil berapa box/ton untuk kebutuhan tokonya? Biar saya hitungkan harga spesialnya. 😊</answer>
+
+      SUMBER DATA:
       ${knowledgeContext}
       ${persona.knowledge_base}
-
-      LOGIKA NALAR KHUSUS IKT (SOUL DIRECTIVES):
-      1. STRATEGI HARGA (WAJIB): JANGAN pernah berikan harga di awal pesan. Jika pelanggan tanya harga, berikan alasan bahwa harga IKT sangat kompetitif dan bervariasi tergantung jumlah pesan. Tanyakan dulu: "Biasanya sekali ambil berapa banyak, Kak?" atau "Rencana pengiriman ke mana?".
-      2. JADWAL PENGIRIMAN: Gunakan nalar jadwal pengiriman (Senin/Kamis ke Sepaku, Selasa/Jumat ke Gerogot) hanya jika pelanggan berada di area tersebut.
-      3. PROAKTIF SABTU: Jika sekarang hari Sabtu (lihat WAKTU SEKARANG), ingatkan pelanggan untuk segera order sebelum jam 13.00 (Close PO).
-      4. STYLE MIRRORING: Ikuti gaya bicara Customer. Gunakan 'Kak' atau 'Juragan' sesuai instruksi.
-      5. NO ROBOT SPEAK: Berbicaralah seperti admin WhatsApp IKT yang profesional, ramah, dan solutif.
+      Aturan Trainer: ${rulesContext}
+      Goal: ${persona.goal}
+      ${customerContext}
     `;
 
     const genAI = new GoogleGenerativeAI(finalKey);
-    // Upgrade to 1.5 Pro for better reasoning if possible, fallback to flash
     const model = genAI.getGenerativeModel({ 
-      model: "gemini-1.5-pro-latest", // Use Pro for better "reasoning"
+      model: "gemini-1.5-pro-latest",
       systemInstruction: systemPrompt,
     });
 
@@ -101,19 +112,29 @@ export const generateAIDraft = async (
     const chat = model.startChat({
       history: chatHistory.slice(0, -1),
       generationConfig: {
-        maxOutputTokens: 1000,
-        temperature: 0.7, // Slightly lower for more focused reasoning
-        topP: 0.95,
-        topK: 40,
+        maxOutputTokens: 1500,
+        temperature: 0.7,
       },
     });
 
     const result = await chat.sendMessage(lastMsg);
     const response = await result.response;
-    return response.text();
+    const text = response.text();
+
+    // Parse XML format
+    const reasoningMatch = text.match(/<reasoning>([\s\S]*?)<\/reasoning>/);
+    const answerMatch = text.match(/<answer>([\s\S]*?)<\/answer>/);
+
+    return {
+      reasoning: reasoningMatch ? reasoningMatch[1].trim() : "Reasoning skipped by model.",
+      content: answerMatch ? answerMatch[1].trim() : text.replace(/<[\s\S]*?>/g, '').trim()
+    };
 
   } catch (err) {
     console.error("Gemini AI Error:", err);
-    return "Maaf, sepertinya saya sedang mengalami kendala koneksi ke server pusat. Bisa tolong ulangi pesan Anda?";
+    return {
+      content: "Maaf Juragan, Sarah sedang ada kendala teknis (API Error). Silakan cek koneksi atau API Key.",
+      reasoning: "Error: " + (err instanceof Error ? err.message : String(err))
+    };
   }
 };
