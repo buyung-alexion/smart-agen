@@ -25,6 +25,11 @@ export const searchLeads = async (category: string, location: string, depth: str
         num: numResults,
       }),
     });
+    
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.message || `API Error: ${response.status}`);
+    }
 
     const data = await response.json();
     

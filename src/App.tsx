@@ -161,9 +161,18 @@ function App() {
       }
     }
 
-    const results = await searchLeads(category, location, depth, serperKey);
-    setScrapedLeads(results);
-    setIsLoading(false);
+    try {
+       const results = await searchLeads(category, location, depth, serperKey);
+       if (results.length === 0) {
+         alert('Pencarian tidak membuahkan hasil. Mohon cek kembali Kunci API Serper Anda di menu Settings atau coba ganti lokasi pencarian.');
+       }
+       setScrapedLeads(results);
+    } catch (err) {
+       console.error('Search failed:', err);
+       alert('Gagal melakukan pencarian. Pastikan Kunci API Serper Anda valid dan memiliki kuota.');
+    } finally {
+       setIsLoading(false);
+    }
   };
 
   // 3. Approval Logic (Save to DB)
